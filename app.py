@@ -1,6 +1,12 @@
 from flask import Flask, render_template, request
 import requests
 from flask_sqlalchemy import SQLAlchemy
+app = Flask(__name__)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mtg.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
 
 class Card(db.Model):
     id = db.Column(db.String, primary_key=True)
@@ -10,12 +16,6 @@ class Card(db.Model):
 
     def __repr__(self):
         return f"<Card {self.name}>"
-
-app = Flask(__name__)
-
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mtg.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
 
 SCRYFALL_API_URL = "https://api.scryfall.com/cards/search?q="
 
