@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MTG Card Search</title>
+</head>
+<body>
+    <h1>Search Magic: The Gathering Cards</h1>
+    <form method="post">
+        <input type="text" name="query" placeholder="e.g. goblin" required>
+        <button type="submit">Search</button>
+    </form>
+
+    {% if error %}
+        <p style="color:red">{{ error }}</p>
+    {% endif %}
+
+    {% for card in cards %}
+        <div>
+            <h3>{{ card.name }}</h3>
+            <img src="{{ card.image_uris.normal }}" alt="{{ card.name }}">
+            <p>{{ card.type_line }}</p>
+        </div>
+        <form method="post" action="/save">
+            <input type="hidden" name="id" value="{{ card.id }}">
+            <input type="hidden" name="name" value="{{ card.name }}">
+            <input type="hidden" name="image_url" value="{{ card.image_uris.normal }}">
+            <input type="hidden" name="type_line" value="{{ card.type_line }}">
+            <button type="submit">Save</button>
+        </form>
+    {% endfor %}
+</body>
+</html>
