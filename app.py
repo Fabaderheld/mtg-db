@@ -17,6 +17,37 @@ class Card(db.Model):
     def __repr__(self):
         return f"<Card {self.name}>"
 
+class Set(db.Model):
+    id = db.Column(db.String, primary_key=True)
+    name = db.Column(db.String, nullable=False)
+    code = db.Column(db.String, nullable=False)
+    icon_url = db.Column(db.String)  # Add a field for the set icon URL
+    released_at = db.Column(db.String)  # Add a field for the set icon URL
+
+    def __repr__(self):
+        return f"<Set {self.name}>"
+
+
+def fetch_and_cache_sets():
+    response = requests.get("https://api.scryfall.com/sets")
+    if response.status_code == 200:
+        data = response.json()
+        sets = data.get("data", [])
+        for set_data in sets:
+            existing_set = Set.query.get(set_data.get("id"))
+            if not existing_set:
+                new_set = Set(
+                    id=set_data.get("id"),
+                    name=set_data.get("name"),
+                    code=set_data.get("code"),
+                    icon_url=set_data.get("icon_svg_uri"),  # Cache the set icon URL
+                    released_at=set_data.get("released_at")  # Cache the set release date
+                )
+                db.session.add(new_set)
+        db.session.commit()
+
+
+
 SCRYFALL_API_URL = "https://api.scryfall.com/cards/search?q="
 
 @app.route("/", methods=["GET", "POST"])
@@ -84,6 +115,28 @@ def advanced_search():
             error = "Error fetching cards from Scryfall."
 
     return render_template("advanced_search.html", cards=cards, error=error, sets=sets)
+
+@app.route("/sets", methods=["GET"])
+def sets():
+    sort = request.args.get('sort', 'name')  # Default sort by name
+    direction = request.args.get('direction', 'asc')  # Default sort direction
+
+    if sort == 'name':
+        if direction == 'asc':
+            sets = Set.query.order_by(Set.name.asc()).all()
+        else:
+            sets = Set.query.order_by(Set.name.desc()).all()
+    elif sort == 'date':
+        if direction == 'asc':
+            sets = Set.query.order_by(Set.released_at.asc()).all()
+        else:
+            sets = Set.query.order_by(Set.released_at.desc()).all()
+    else:
+        sets = Set.query.all()
+
+    return render_template("sets.html", sets=sets)
+
+
 
 if __name__ == "__main__":
     with app.app_context():

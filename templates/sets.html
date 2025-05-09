@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mt-5">All Sets</h1>
+<div class="mb-3">
+    <button type="button" class="btn btn-sm btn-outline-dark" id="sortByName">
+        Sort by Name <span id="nameSortIndicator"></span>
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-dark" id="sortByDate">
+        Sort by Release Date <span id="dateSortIndicator"></span>
+    </button>
+</div>
+<div class="row" id="setsContainer">
+    {% for set in sets %}
+    <div class="col-md-4 mb-4">
+        <div class="card" style="height: 200px; display: flex; flex-direction: column;">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title">{{ set.name }}</h5>
+                {% if set.icon_url %}
+                <img src="{{ set.icon_url }}" class="img-fluid mt-auto" alt="{{ set.name }}" style="max-height: 100px;">
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const sortByNameButton = document.getElementById('sortByName');
+        const sortByDateButton = document.getElementById('sortByDate');
+        const setsContainer = document.getElementById('setsContainer');
+        const nameSortIndicator = document.getElementById('nameSortIndicator');
+        const dateSortIndicator = document.getElementById('dateSortIndicator');
+
+        let sortByNameDirection = 'asc';
+        let sortByDateDirection = 'asc';
+
+        sortByNameButton.addEventListener('click', function () {
+            sortByNameDirection = sortByNameDirection === 'asc' ? 'desc' : 'asc';
+            nameSortIndicator.textContent = sortByNameDirection === 'asc' ? '↑' : '↓';
+            dateSortIndicator.textContent = '';
+
+            fetch(`/sets?sort=name&direction=${sortByNameDirection}`)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    setsContainer.innerHTML = doc.querySelector('#setsContainer').innerHTML;
+                });
+        });
+
+        sortByDateButton.addEventListener('click', function () {
+            sortByDateDirection = sortByDateDirection === 'asc' ? 'desc' : 'asc';
+            dateSortIndicator.textContent = sortByDateDirection === 'asc' ? '↑' : '↓';
+            nameSortIndicator.textContent = '';
+
+            fetch(`/sets?sort=date&direction=${sortByDateDirection}`)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    setsContainer.innerHTML = doc.querySelector('#setsContainer').innerHTML;
+                });
+        });
+    });
+</script>
+{% endblock %}
