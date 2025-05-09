@@ -1,18 +1,45 @@
 from flask import Flask, render_template, request
 import requests
 from flask_sqlalchemy import SQLAlchemy
+import time
+import os
 
 app = Flask(__name__)
-
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mtg.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cards.db'  # Configure the SQLite database
+app.config['UPLOAD_FOLDER'] = 'static/images'  # Configure the folder to store images
 db = SQLAlchemy(app)
+
+# Ensure the upload folder exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+
+def download_image(url, filename):
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(filename, 'wb') as f:
+            f.write(response.content)
+
+# Association table for the many-to-many relationship between Card and Color
+card_colors = db.Table('card_colors',
+    db.Column('card_id', db.String, db.ForeignKey('card.id'), primary_key=True),
+    db.Column('color_id', db.String, db.ForeignKey('color.id'), primary_key=True)
+)
+
+class Color(db.Model):
+    id = db.Column(db.String, primary_key=True)
+    name = db.Column(db.String, nullable=False)
+
+    def __repr__(self):
+        return f"<Color {self.name}>"
 
 class Card(db.Model):
     id = db.Column(db.String, primary_key=True)
     name = db.Column(db.String, nullable=False)
-    image_url = db.Column(db.String)
     type_line = db.Column(db.String)
+    image_url = db.Column(db.String)
+    local_image_path = db.Column(db.String)  # Store the local path to the image
+    colors = db.relationship('Color', secondary=card_colors, lazy='subquery',
+                            backref=db.backref('cards', lazy=True))
 
     def __repr__(self):
         return f"<Card {self.name}>"
@@ -90,31 +117,117 @@ def index():
 
     return render_template("index.html", cards=cards, error=error)
 
+
 @app.route("/advanced_search", methods=["GET", "POST"])
 def advanced_search():
-    cards = []
-    error = None
+    card_types = ["Creature", "Instant", "Sorcery", "Artifact", "Enchantment", "Planeswalker", "Land"]  # Example card types
+    colors = ["White", "Blue", "Black", "Red", "Green"]  # Example colors
+    mana_icons = fetch_mana_icons()  # Fetch mana icons from Scryfall API
 
-    # Fetch and cache sets if not already cached
-    if not Set.query.first():
-        fetch_and_cache_sets()
-
+    # Fetch sets from the database
     sets = Set.query.all()
 
     if request.method == "POST":
+        # Extract search parameters from the form
         card_name = request.form.get("cardName")
         card_type = request.form.get("cardType")
-        card_set = request.form.get("cardSet")
-        # Build your advanced search query here
-        query = f"name:{card_name} type:{card_type} set:{card_set}"
-        response = requests.get(SCRYFALL_API_URL + query)
-        if response.status_code == 200:
-            data = response.json()
-            cards = data.get("data", [])
-        else:
-            error = "Error fetching cards from Scryfall."
+        selected_colors = request.form.getlist("colors")
+        selected_sets = request.form.getlist("sets")
 
-    return render_template("advanced_search.html", cards=cards, error=error, sets=sets)
+        # Construct the search query according to Scryfall API documentation
+        query_parts = []
+        if card_name:
+            query_parts.append(f'!"{card_name}"')  # Exact match for card name
+        if card_type:
+            query_parts.append(f't:{card_type}')  # Card type
+        if selected_colors:
+            query_parts.append(" ".join([f'c:{color[0].upper()}' for color in selected_colors]))  # Colors
+        if selected_sets:
+            query_parts.append(" ".join([f's:{set_code}' for set_code in selected_sets]))  # Sets
+
+        query = " ".join(query_parts)
+        print(f"Search Query: {query}")  # Debug: Print the search query
+
+        # Query the local database for existing cards
+        all_cards = []
+        if card_name:
+            all_cards = Card.query.filter_by(name=card_name).all()
+        if card_type:
+            all_cards = Card.query.filter_by(type_line=card_type).all()
+        if selected_colors:
+            all_cards = Card.query.join(card_colors).join(Color).filter(Color.name.in_(selected_colors)).all()
+        if selected_sets:
+            all_cards = Card.query.filter(Card.sets.any(Set.code.in_(selected_sets))).all()
+
+        # If no cards are found in the local database, fetch from the Scryfall API
+        if not all_cards:
+            all_cards = []
+            has_more = True
+            page = 1
+
+            while has_more:
+                response = requests.get(f"https://api.scryfall.com/cards/search?q={query}&page={page}")
+                print(f"API Response Status Code: {response.status_code}")  # Debug: Print the response status code
+                time.sleep(0.05)  # Add a 50ms delay between API calls
+
+                if response.status_code == 200:
+                    data = response.json()
+                    print(f"API Response Data: {data}")  # Debug: Print the response data
+                    all_cards.extend(data.get("data", []))
+                    has_more = data.get("has_more", False)
+                    page += 1
+                else:
+                    has_more = False
+
+            # Store the fetched cards in the local database
+            for card_data in all_cards:
+                existing_card = Card.query.get(card_data.get("id"))
+                if not existing_card:
+                    image_url = card_data.get("image_uris", {}).get("normal")
+                    local_image_path = None
+                    if image_url:
+                        filename = os.path.join(app.config['UPLOAD_FOLDER'], f"{card_data.get('id')}.jpg")
+                        download_image(image_url, filename)
+                        local_image_path = filename
+
+                    new_card = Card(
+                        id=card_data.get("id"),
+                        name=card_data.get("name"),
+                        type_line=card_data.get("type_line"),
+                        image_url=image_url,
+                        local_image_path=local_image_path
+                        # Add other fields as needed
+                    )
+
+                    db.session.add(new_card)
+            db.session.commit()
+
+        total_items = len(all_cards)
+        print(f"Total Items Found: {total_items}")  # Debug: Print the total number of items found
+        return render_template("advanced_search.html", card_types=card_types, colors=colors, mana_icons=mana_icons, sets=sets, cards=all_cards, total_items=total_items)
+
+    # For GET requests, just render the template with the sets
+    return render_template("advanced_search.html", card_types=card_types, colors=colors, mana_icons=mana_icons, sets=sets)
+
+def fetch_mana_icons():
+    response = requests.get("https://api.scryfall.com/symbology")
+    mana_icons = {
+        "White": None,
+        "Blue": None,
+        "Black": None,
+        "Red": None,
+        "Green": None
+    }
+
+    if response.status_code == 200:
+        data = response.json()
+        for symbol in data.get("data", []):
+            if symbol.get("symbol") in ["{W}", "{U}", "{B}", "{R}", "{G}"]:
+                color = symbol.get("symbol")[1:-1].capitalize()  # Extract the color from the symbol
+                mana_icons[color] = symbol.get("svg_uri")
+                time.sleep(0.05)  # Add a 50ms delay between API calls
+
+    return mana_icons
 
 @app.route("/sets", methods=["GET"])
 def sets():
@@ -146,6 +259,7 @@ def search():
             data = response.json()
             cards = data.get("data", [])
             return render_template("search_results.html", cards=cards)
+            time.sleep(0.05)  # Add a 50ms delay between API calls
         else:
             error = "Error fetching cards from Scryfall."
             return render_template("search_results.html", error=error)

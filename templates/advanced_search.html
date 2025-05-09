@@ -39,28 +39,80 @@
         width: 100%;
         /* Ensure form controls span the full width */
     }
+
+    .card {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .card-body {
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+    }
+
+    .card img {
+        max-height: 100px;
+        margin-top: auto;
+        /* Push the image to the bottom */
+    }
+
+    .color-checkbox-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .color-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
 </style>
 
 <h1 class="mt-5">Advanced Search</h1>
-<form method="post" class="mb-4">
+<form method="post" class="mb-4" id="searchForm">
     <div class="mb-3">
         <label for="cardName" class="form-label">Card Name</label>
         <input type="text" class="form-control" id="cardName" name="cardName" placeholder="Enter card name">
     </div>
     <div class="mb-3">
         <label for="cardType" class="form-label">Card Type</label>
-        <input type="text" class="form-control" id="cardType" name="cardType" placeholder="Enter card type">
+        <select class="form-select" id="cardType" name="cardType">
+            <option value="">Select a card type</option>
+            {% for type in card_types %}
+            <option value="{{ type }}">{{ type }}</option>
+            {% endfor %}
+        </select>
     </div>
     <div class="mb-3">
-        <button class="form-label" type="button" data-bs-toggle="collapse" data-bs-target="#setsCollapse"
+        <label class="form-label">Card Colors</label>
+        <div class="color-checkbox-container">
+            {% for color in colors %}
+            <div class="form-check color-checkbox">
+                <input class="form-check-input" type="checkbox" name="colors" value="{{ color }}" id="color{{ color }}">
+                <label class="form-check-label" for="color{{ color }}">
+                    {% if mana_icons[color[0].upper()] %}
+                    <img src="{{ mana_icons[color[0].upper()] }}"
+                        style="width: 20px; height: 20px; vertical-align: middle;">
+                    {% endif %}
+                    {{ color }}
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="mb-3">
+        <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#setsCollapse"
             aria-expanded="false" aria-controls="setsCollapse">
-            <span class="form-label">></span> Select Sets
+            <span class="collapsible-indicator">></span> Select Sets
         </button>
         <div class="collapse sets-container" id="setsCollapse">
             <div class="card card-body">
                 <div class="mb-3">
-                    <button type="button" class="btn btn-sm btn-outline-dark" id="checkAll">Check All</button>
-                    <button type="button" class="btn btn-sm btn-outline-dark" id="uncheckAll">Uncheck All</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="checkAll">Check All</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="uncheckAll">Uncheck All</button>
                 </div>
                 <div class="set-checkbox-container">
                     {% for set in sets %}
@@ -70,7 +122,7 @@
                         <label class="form-check-label" for="set{{ set.code }}">
                             <img src="{{ set.icon_url }}"
                                 style="width: 20px; height: 20px; margin-right: 10px; vertical-align: middle;">
-                            {{ set.name }}
+                            {{ set.name }} - {{ set.code }}
                         </label>
                     </div>
                     {% endfor %}
@@ -88,12 +140,19 @@
 </div>
 {% endif %}
 
+{% if total_items is defined %}
+<div class="alert alert-info">
+    Found {{ total_items }} items.
+</div>
+{% endif %}
+
 <div class="row">
     {% for card in cards %}
     <div class="col-md-4 mb-4">
         <div class="card">
-            {% if card.image_uris and card.image_uris.normal %}
-            <img src="{{ card.image_uris.normal }}" class="card-img-top" alt="{{ card.name }}">
+            {% if card.local_image_path %}
+            <img src="{{ url_for('static', filename=card.local_image_path) }}" class="card-img-top"
+                alt="{{ card.name }}">
             {% else %}
             <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center"
                 style="height: 300px;">
@@ -106,7 +165,7 @@
                 <form method="post" action="/save">
                     <input type="hidden" name="id" value="{{ card.id }}">
                     <input type="hidden" name="name" value="{{ card.name }}">
-                    <input type="hidden" name="image_url" value="{{ card.image_uris.normal }}">
+                    <input type="hidden" name="image_url" value="{{ card.image_url }}">
                     <input type="hidden" name="type_line" value="{{ card.type_line }}">
                     <button type="submit" class="btn btn-dark">Save</button>
                 </form>
@@ -124,6 +183,8 @@
         const checkboxes = document.querySelectorAll('.set-checkbox');
         const collapsibleIndicator = document.querySelector('.collapsible-indicator');
         const setsCollapse = document.getElementById('setsCollapse');
+        const searchForm = document.getElementById('searchForm');
+        const loadingSpinner = document.getElementById('loadingSpinner');
 
         checkAllButton.addEventListener('click', function () {
             checkboxes.forEach(function (checkbox) {
@@ -143,6 +204,10 @@
 
         setsCollapse.addEventListener('hide.bs.collapse', function () {
             collapsibleIndicator.classList.remove('collapsed');
+        });
+
+        searchForm.addEventListener('submit', function () {
+            loadingSpinner.style.display = 'block';  // Show the loading spinner
         });
     });
 </script>
