@@ -10,3 +10,35 @@ body {
     font-family: 'Beleren', sans-serif !important;
     background-color: #f8f5f0 !important;
 }
+
+/* custom.css */
+
+/* MTG Colors */
+:root {
+    --mtg-white: #F5F5F5;
+    --mtg-blue: #0064FF;
+    --mtg-black: #000000;
+    --mtg-red: #FF3300;
+    --mtg-green: #008000;
+}
+
+/* Example usage */
+.mtg-white {
+    color: var(--mtg-white);
+}
+
+.mtg-blue {
+    color: var(--mtg-blue);
+}
+
+.mtg-black {
+    color: var(--mtg-black);
+}
+
+.mtg-red {
+    color: var(--mtg-red);
+}
+
+.mtg-green {
+    color: var(--mtg-green);
+}
