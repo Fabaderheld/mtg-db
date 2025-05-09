@@ -1,0 +1,12 @@
+/* custom.css */
+@font-face {
+    font-family: 'Beleren';
+    src: url('/static/fonts/Beleren2016-Bold.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+body {
+    font-family: 'Beleren', sans-serif !important;
+    background-color: #f8f5f0 !important;
+}

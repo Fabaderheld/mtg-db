@@ -1,32 +1,84 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>MTG Card Search</title>
-</head>
-<body>
-    <h1>Search Magic: The Gathering Cards</h1>
-    <form method="post">
-        <input type="text" name="query" placeholder="e.g. goblin" required>
-        <button type="submit">Search</button>
-    </form>
+{% extends "base.html" %}
 
-    {% if error %}
-        <p style="color:red">{{ error }}</p>
-    {% endif %}
+{% block content %}
 
-    {% for card in cards %}
-        <div>
-            <h3>{{ card.name }}</h3>
-            <img src="{{ card.image_uris.normal }}" alt="{{ card.name }}">
-            <p>{{ card.type_line }}</p>
+<nav class="navbar navbar-expand-lg bg-light" data-bs-theme="light">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">MTG-DB</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarColor03"
+            aria-controls="navbarColor03" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarColor03">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#">Home
+                        <span class="visually-hidden">(current)</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Features</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Pricing</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">About</a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button"
+                        aria-haspopup="true" aria-expanded="false">Dropdown</a>
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" href="#">Action</a>
+                        <a class="dropdown-item" href="#">Another action</a>
+                        <a class="dropdown-item" href="#">Something else here</a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="#">Separated link</a>
+                    </div>
+                </li>
+            </ul>
+            <form method="post" class="d-flex">
+                <input class="form-control me-sm-2" type="search" name="query" placeholder="e.g. goblin" required>
+                <button class="btn btn-dark my-2 my-sm-0" type="submit">Search</button>
+            </form>
         </div>
-        <form method="post" action="/save">
-            <input type="hidden" name="id" value="{{ card.id }}">
-            <input type="hidden" name="name" value="{{ card.name }}">
-            <input type="hidden" name="image_url" value="{{ card.image_uris.normal }}">
-            <input type="hidden" name="type_line" value="{{ card.type_line }}">
-            <button type="submit">Save</button>
-        </form>
+    </div>
+</nav>
+
+
+
+<h1 class="mt-5">Search Magic: The Gathering Cards</h1>
+<form method="post" class="mb-4">
+    <div class="input-group">
+        <input type="text" class="form-control" name="query" placeholder="e.g. goblin" required>
+        <button class="btn btn-dark" type="submit">Search</button>
+    </div>
+</form>
+
+{% if error %}
+<div class="alert alert-danger">
+    {{ error }}
+</div>
+{% endif %}
+
+<div class="row">
+    {% for card in cards %}
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <img src="{{ card.image_uris.normal }}" class="card-img-top" alt="{{ card.name }}">
+            <div class="card-body">
+                <h5 class="card-title">{{ card.name }}</h5>
+                <p class="card-text">{{ card.type_line }}</p>
+                <form method="post" action="/save">
+                    <input type="hidden" name="id" value="{{ card.id }}">
+                    <input type="hidden" name="name" value="{{ card.name }}">
+                    <input type="hidden" name="image_url" value="{{ card.image_uris.normal }}">
+                    <input type="hidden" name="type_line" value="{{ card.type_line }}">
+                    <button type="submit" class="btn btn-dark">Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
     {% endfor %}
-</body>
-</html>
+</div>
+{% endblock %}
