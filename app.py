@@ -59,6 +59,32 @@ def index():
 
     return render_template("index.html", cards=cards, error=error)
 
+@app.route("/advanced_search", methods=["GET", "POST"])
+def advanced_search():
+    cards = []
+    error = None
+
+    # Fetch and cache sets if not already cached
+    if not Set.query.first():
+        fetch_and_cache_sets()
+
+    sets = Set.query.all()
+
+    if request.method == "POST":
+        card_name = request.form.get("cardName")
+        card_type = request.form.get("cardType")
+        card_set = request.form.get("cardSet")
+        # Build your advanced search query here
+        query = f"name:{card_name} type:{card_type} set:{card_set}"
+        response = requests.get(SCRYFALL_API_URL + query)
+        if response.status_code == 200:
+            data = response.json()
+            cards = data.get("data", [])
+        else:
+            error = "Error fetching cards from Scryfall."
+
+    return render_template("advanced_search.html", cards=cards, error=error, sets=sets)
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()

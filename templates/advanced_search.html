@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .sets-container {
+        background-color: inherit;
+        /* Inherit the background color from the body */
+        width: 100%;
+        /* Ensure the collapsible section spans the full width */
+    }
+
+    .set-checkbox-container {
+        column-count: 4;
+        /* Create 4 columns */
+    }
+
+    .collapsible-indicator {
+        display: inline-block;
+        transition: transform 0.3s ease;
+    }
+
+    .collapsible-indicator.collapsed {
+        transform: rotate(90deg);
+    }
+
+    .btn-link {
+        color: black;
+        /* Black color */
+        text-decoration: none;
+        /* Remove underline */
+    }
+
+    .btn-link:hover {
+        color: #6c757d;
+        /* Light grey color on hover */
+    }
+
+    .form-control {
+        width: 100%;
+        /* Ensure form controls span the full width */
+    }
+</style>
+
+<h1 class="mt-5">Advanced Search</h1>
+<form method="post" class="mb-4">
+    <div class="mb-3">
+        <label for="cardName" class="form-label">Card Name</label>
+        <input type="text" class="form-control" id="cardName" name="cardName" placeholder="Enter card name">
+    </div>
+    <div class="mb-3">
+        <label for="cardType" class="form-label">Card Type</label>
+        <input type="text" class="form-control" id="cardType" name="cardType" placeholder="Enter card type">
+    </div>
+    <div class="mb-3">
+        <button class="form-label" type="button" data-bs-toggle="collapse" data-bs-target="#setsCollapse"
+            aria-expanded="false" aria-controls="setsCollapse">
+            <span class="form-label">></span> Select Sets
+        </button>
+        <div class="collapse sets-container" id="setsCollapse">
+            <div class="card card-body">
+                <div class="mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-dark" id="checkAll">Check All</button>
+                    <button type="button" class="btn btn-sm btn-outline-dark" id="uncheckAll">Uncheck All</button>
+                </div>
+                <div class="set-checkbox-container">
+                    {% for set in sets %}
+                    <div class="form-check">
+                        <input class="form-check-input set-checkbox" type="checkbox" name="sets" value="{{ set.code }}"
+                            id="set{{ set.code }}">
+                        <label class="form-check-label" for="set{{ set.code }}">
+                            <img src="{{ set.icon_url }}"
+                                style="width: 20px; height: 20px; margin-right: 10px; vertical-align: middle;">
+                            {{ set.name }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Add more fields as needed -->
+    <button type="submit" class="btn btn-dark">Search</button>
+</form>
+
+{% if error %}
+<div class="alert alert-danger">
+    {{ error }}
+</div>
+{% endif %}
+
+<div class="row">
+    {% for card in cards %}
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            {% if card.image_uris and card.image_uris.normal %}
+            <img src="{{ card.image_uris.normal }}" class="card-img-top" alt="{{ card.name }}">
+            {% else %}
+            <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center"
+                style="height: 300px;">
+                No Image Available
+            </div>
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ card.name }}</h5>
+                <p class="card-text">{{ card.type_line }}</p>
+                <form method="post" action="/save">
+                    <input type="hidden" name="id" value="{{ card.id }}">
+                    <input type="hidden" name="name" value="{{ card.name }}">
+                    <input type="hidden" name="image_url" value="{{ card.image_uris.normal }}">
+                    <input type="hidden" name="type_line" value="{{ card.type_line }}">
+                    <button type="submit" class="btn btn-dark">Save</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Add JavaScript to handle check all and uncheck all functionality -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const checkAllButton = document.getElementById('checkAll');
+        const uncheckAllButton = document.getElementById('uncheckAll');
+        const checkboxes = document.querySelectorAll('.set-checkbox');
+        const collapsibleIndicator = document.querySelector('.collapsible-indicator');
+        const setsCollapse = document.getElementById('setsCollapse');
+
+        checkAllButton.addEventListener('click', function () {
+            checkboxes.forEach(function (checkbox) {
+                checkbox.checked = true;
+            });
+        });
+
+        uncheckAllButton.addEventListener('click', function () {
+            checkboxes.forEach(function (checkbox) {
+                checkbox.checked = false;
+            });
+        });
+
+        setsCollapse.addEventListener('show.bs.collapse', function () {
+            collapsibleIndicator.classList.add('collapsed');
+        });
+
+        setsCollapse.addEventListener('hide.bs.collapse', function () {
+            collapsibleIndicator.classList.remove('collapsed');
+        });
+    });
+</script>
+{% endblock %}
