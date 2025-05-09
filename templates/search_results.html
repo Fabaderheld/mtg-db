@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mt-5">Search Results</h1>
+{% if error %}
+<div class="alert alert-danger">
+    {{ error }}
+</div>
+{% endif %}
+<div class="row">
+    {% for card in cards %}
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            {% if card.image_uris and card.image_uris.normal %}
+            <img src="{{ card.image_uris.normal }}" class="card-img-top" alt="{{ card.name }}">
+            {% else %}
+            <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center"
+                style="height: 300px;">
+                No Image Available
+            </div>
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ card.name }}</h5>
+                <p class="card-text">{{ card.type_line }}</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -42,3 +42,37 @@ body {
 .mtg-green {
     color: var(--mtg-green);
 }
+
+/* custom.css */
+
+.card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-body {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.card img {
+    max-height: 100px;
+    margin-top: auto;
+    /* Push the image to the bottom */
+}
+
+.btn {
+    margin-top: auto;
+    /* Push the button to the bottom */
+    width: 100%;
+    /* Ensure the button spans the full width */
+}
+
+/* custom.css */
+
+.btn-outline-primary {
+    margin-right: 10px;
+    /* Add some spacing between the buttons */
+}

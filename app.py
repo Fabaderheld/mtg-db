@@ -136,6 +136,22 @@ def sets():
 
     return render_template("sets.html", sets=sets)
 
+@app.route("/search", methods=["GET"])
+def search():
+    set_code = request.args.get('set')
+    if set_code:
+        # Perform a search for all cards in the specified set
+        response = requests.get(f"https://api.scryfall.com/cards/search?q=set:{set_code}")
+        if response.status_code == 200:
+            data = response.json()
+            cards = data.get("data", [])
+            return render_template("search_results.html", cards=cards)
+        else:
+            error = "Error fetching cards from Scryfall."
+            return render_template("search_results.html", error=error)
+    else:
+        error = "No set specified."
+        return render_template("search_results.html", error=error)
 
 
 if __name__ == "__main__":
