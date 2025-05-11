@@ -20,7 +20,9 @@
                 {% if set.icon_url %}
                 <img src="{{ set.icon_url }}" class="img-fluid mt-auto" alt="{{ set.name }}" style="max-height: 100px;">
                 {% endif %}
-                <a href="/search?set={{ set.code }}" class="btn btn-primary mt-3">Search Cards in Set</a>
+                <a href="{{ url_for('set_detail', set_code=set.code) }}"
+                    class="btn btn-primary mt-3 view-cards-btn">View Cards in
+                    Set</a>
             </div>
         </div>
     </div>
@@ -38,6 +40,26 @@
         let sortByNameDirection = 'asc';
         let sortByDateDirection = 'asc';
 
+        function attachViewCardListeners() {
+            document.querySelectorAll('.view-cards-btn').forEach(button => {
+                const href = button.getAttribute('href');
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();         // Stop immediate navigation
+                    showLoading();              // Show spinner
+                    setTimeout(() => {
+                        window.location.href = href;  // Navigate after delay
+                    }, 100);                   // Small delay (~100ms)
+                });
+            });
+        }
+
+        function updateSetsFromResponse(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            setsContainer.innerHTML = doc.querySelector('#setsContainer').innerHTML;
+            attachViewCardListeners(); // Reattach to new buttons
+        }
+
         sortByNameButton.addEventListener('click', function () {
             sortByNameDirection = sortByNameDirection === 'asc' ? 'desc' : 'asc';
             nameSortIndicator.textContent = sortByNameDirection === 'asc' ? '↑' : '↓';
@@ -45,11 +67,7 @@
 
             fetch(`/sets?sort=name&direction=${sortByNameDirection}`)
                 .then(response => response.text())
-                .then(html => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-                    setsContainer.innerHTML = doc.querySelector('#setsContainer').innerHTML;
-                });
+                .then(updateSetsFromResponse);
         });
 
         sortByDateButton.addEventListener('click', function () {
@@ -59,12 +77,12 @@
 
             fetch(`/sets?sort=date&direction=${sortByDateDirection}`)
                 .then(response => response.text())
-                .then(html => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-                    setsContainer.innerHTML = doc.querySelector('#setsContainer').innerHTML;
-                });
+                .then(updateSetsFromResponse);
         });
+
+        attachViewCardListeners(); // Initial setup
     });
 </script>
+
+<script src="{{ url_for('static', filename='js/Loading.js') }}"></script>
 {% endblock %}

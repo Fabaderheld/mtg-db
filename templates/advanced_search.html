@@ -150,6 +150,18 @@
     {% for card in cards %}
     <div class="col-md-4 mb-4">
         <div class="card">
+
+
+            <!-- Debug: Print the local image path -->
+            <p>Local Image Path: {{ card.local_image_path }}</p>
+
+            <!-- Debug: Print the type of local_image_path -->
+            <p>Type of Local Image Path: {{ card.local_image_path.__class__.__name__ }}</p>
+
+            <!-- Debug: Print the length of local_image_path -->
+            <p>Length of Local Image Path: {{ card.local_image_path|length }}</p>
+
+
             {% if card.local_image_path %}
             <img src="{{ url_for('static', filename=card.local_image_path) }}" class="card-img-top"
                 alt="{{ card.name }}">
@@ -159,6 +171,8 @@
                 No Image Available
             </div>
             {% endif %}
+            <!-- Debug: Print the local image path -->
+            <p>Local Image Path: {{ card.local_image_path }}</p>
             <div class="card-body">
                 <h5 class="card-title">{{ card.name }}</h5>
                 <p class="card-text">{{ card.type_line }}</p>

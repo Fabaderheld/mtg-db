@@ -1,0 +1,28 @@
+<!-- templates/card_detail.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mt-5">{{ card.name }}</h1>
+<div class="card mb-4">
+    {% if card.local_image_path %}
+    <img src="/{{ card.local_image_path }}" class="card-img-top" alt="{{ card.name }}"
+        style="height: 500px; width: auto; object-fit: contain;">
+    {% else %}
+    <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center"
+        style="height: 300px;">
+        No Image Available
+    </div>
+    {% endif %}
+    <div class="card-body">
+        <h5 class="card-title">{{ card.type_line }}</h5>
+        <p class="card-text">{{ card.text }}</p>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>Mana Cost:</strong> {{ card.mana_costs }}</li>
+            <li class="list-group-item"><strong>Power/Toughness:</strong> {{ card.power }}/{{ card.toughness }}</li>
+            <li class="list-group-item"><strong>Rarity:</strong> {{ card.rarity }}</li>
+            <li class="list-group-item"><strong>Set:</strong> {{ set_details.name}}</li>
+        </ul>
+    </div>
+</div>
+<a href="{{ url_for('index') }}" class="btn btn-primary">Back to Search</a>
+{% endblock %}
