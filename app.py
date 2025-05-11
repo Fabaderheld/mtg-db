@@ -3,21 +3,63 @@ import requests
 from flask_sqlalchemy import SQLAlchemy
 import time
 import os
+import logging
+import re
+import json
+import ijson
+
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cards.db'  # Configure the SQLite database
+
+# Ensure the directory exists and is writable
+db_dir = os.path.abspath('instance')
+os.makedirs(db_dir, exist_ok=True)
+db_path = os.path.join(db_dir, 'mtg.db')
+
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'   # Configure the SQLite database
 app.config['UPLOAD_FOLDER'] = 'static/images'  # Configure the folder to store images
 db = SQLAlchemy(app)
+
+# Custom filter to strip ANSI escape codes
+class StripColorFilter(logging.Filter):
+    def filter(self, record):
+        ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
+        record.msg = ansi_escape.sub('', record.msg)
+        return True
+
+# Configure logging
+logging.basicConfig(
+    #filename='app.log',  # Log file name
+    level=logging.DEBUG,  # Log level
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Log format
+    handlers=[
+        logging.StreamHandler()  # Use StreamHandler to output logs to the console
+    ]
+)
+
+# Add the custom filter to the root logger
+logging.getLogger().addFilter(StripColorFilter())
 
 # Ensure the upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-
 def download_image(url, filename):
+    # Check if the file already exists
+    if os.path.exists(filename):
+        logging.info(f"Image already exists at {filename}, skipping download.")
+        return True
+
+    # If the file does not exist, proceed with downloading
     response = requests.get(url)
     if response.status_code == 200:
         with open(filename, 'wb') as f:
             f.write(response.content)
+        logging.info(f"Image downloaded and saved to {filename}")
+        return True
+    else:
+        logging.error(f"Failed to download image from {url}")
+        return False
 
 # Association table for the many-to-many relationship between Card and Color
 card_colors = db.Table('card_colors',
@@ -40,20 +82,21 @@ class Card(db.Model):
     local_image_path = db.Column(db.String)  # Store the local path to the image
     colors = db.relationship('Color', secondary=card_colors, lazy='subquery',
                             backref=db.backref('cards', lazy=True))
+    raw = db.Column(db.String)
 
     def __repr__(self):
         return f"<Card {self.name}>"
 
 class Set(db.Model):
+    __tablename__ = 'sets'  # Specify the table name explicitly
     id = db.Column(db.String, primary_key=True)
     name = db.Column(db.String, nullable=False)
     code = db.Column(db.String, nullable=False)
-    icon_url = db.Column(db.String)  # Add a field for the set icon URL
-    released_at = db.Column(db.String)  # Add a field for the set icon URL
+    icon_url = db.Column(db.String)
+    released_at = db.Column(db.String)
 
     def __repr__(self):
         return f"<Set {self.name}>"
-
 
 def fetch_and_cache_sets():
     response = requests.get("https://api.scryfall.com/sets")
@@ -72,8 +115,6 @@ def fetch_and_cache_sets():
                 )
                 db.session.add(new_set)
         db.session.commit()
-
-
 
 SCRYFALL_API_URL = "https://api.scryfall.com/cards/search?q="
 
@@ -117,12 +158,13 @@ def index():
 
     return render_template("index.html", cards=cards, error=error)
 
-
 @app.route("/advanced_search", methods=["GET", "POST"])
 def advanced_search():
     card_types = ["Creature", "Instant", "Sorcery", "Artifact", "Enchantment", "Planeswalker", "Land"]  # Example card types
     colors = ["White", "Blue", "Black", "Red", "Green"]  # Example colors
     mana_icons = fetch_mana_icons()  # Fetch mana icons from Scryfall API
+
+    logging.info(f"Triggered Search")  # Log the search query
 
     # Fetch sets from the database
     sets = Set.query.all()
@@ -146,7 +188,7 @@ def advanced_search():
             query_parts.append(" ".join([f's:{set_code}' for set_code in selected_sets]))  # Sets
 
         query = " ".join(query_parts)
-        print(f"Search Query: {query}")  # Debug: Print the search query
+        logging.info(f"Search Query: {query}")  # Log the search query
 
         # Query the local database for existing cards
         all_cards = []
@@ -166,13 +208,14 @@ def advanced_search():
             page = 1
 
             while has_more:
+                logging.info(f"Fetching additional Cards from API")
                 response = requests.get(f"https://api.scryfall.com/cards/search?q={query}&page={page}")
-                print(f"API Response Status Code: {response.status_code}")  # Debug: Print the response status code
+                logging.info(f"API Response Status Code: {response.status_code}")  # Log the response status code
                 time.sleep(0.05)  # Add a 50ms delay between API calls
 
                 if response.status_code == 200:
                     data = response.json()
-                    print(f"API Response Data: {data}")  # Debug: Print the response data
+                    logging.debug(f"API Response Data: {data}")  # Log the response data
                     all_cards.extend(data.get("data", []))
                     has_more = data.get("has_more", False)
                     page += 1
@@ -187,23 +230,30 @@ def advanced_search():
                     local_image_path = None
                     if image_url:
                         filename = os.path.join(app.config['UPLOAD_FOLDER'], f"{card_data.get('id')}.jpg")
-                        download_image(image_url, filename)
-                        local_image_path = filename
+                        if download_image(image_url, filename):
+                            local_image_path = filename
+                        else:
+                            local_image_path = None
+                            logging.warning(f"No local image path for card: {card_data.get('name')}")  # Log a warning if no local image path
 
                     new_card = Card(
                         id=card_data.get("id"),
                         name=card_data.get("name"),
                         type_line=card_data.get("type_line"),
                         image_url=image_url,
-                        local_image_path=local_image_path
+                        local_image_path=local_image_path,
+                        raw = card_data
                         # Add other fields as needed
                     )
-
                     db.session.add(new_card)
             db.session.commit()
 
+        # Ensure all_cards is a list, even if it's empty
+        if all_cards is None:
+            all_cards = []
+
         total_items = len(all_cards)
-        print(f"Total Items Found: {total_items}")  # Debug: Print the total number of items found
+        logging.info(f"Total Items Found: {total_items}")  # Log the total number of items found
         return render_template("advanced_search.html", card_types=card_types, colors=colors, mana_icons=mana_icons, sets=sets, cards=all_cards, total_items=total_items)
 
     # For GET requests, just render the template with the sets
@@ -228,6 +278,39 @@ def fetch_mana_icons():
                 time.sleep(0.05)  # Add a 50ms delay between API calls
 
     return mana_icons
+
+
+
+def import_bulk_data_from_file(file_path):
+    # Use ijson to parse the JSON file incrementally
+    with open(file_path, 'rb') as file:
+        # Parse the JSON file item by item
+        for card_data in ijson.items(file, 'item'):
+            existing_card = Card.query.get(card_data.get("id"))
+            if not existing_card:
+                image_url = card_data.get("image_uris", {}).get("normal")
+                local_image_path = None
+                if image_url:
+                    filename = os.path.join(app.config['UPLOAD_FOLDER'], f"{card_data.get('id')}.jpg")
+                    if not os.path.exists(filename):
+                        if download_image(image_url, filename):
+                            local_image_path = filename
+
+                new_card = Card(
+                    id=card_data.get("id"),
+                    name=card_data.get("name"),
+                    type_line=card_data.get("type_line"),
+                    image_url=image_url,
+                    local_image_path=local_image_path
+                )
+                db.session.add(new_card)
+                # Commit in batches to avoid memory issues
+                if db.session.new:
+                    db.session.commit()
+                    logging.info("Committed a batch of cards to the database.")
+
+    os.remove(file_path)
+    logging.info("Bulk data import from file completed successfully.")
 
 @app.route("/sets", methods=["GET"])
 def sets():
@@ -267,8 +350,15 @@ def search():
         error = "No set specified."
         return render_template("search_results.html", error=error)
 
-
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
+        fetch_and_cache_sets()
+
+        # Check if the import file exists at startup
+        import_file_path = "import/import.json"  # Update this path to the location of your bulk data file
+        if os.path.exists(import_file_path):
+            logging.info("Found import.json file, staring import")
+            import_bulk_data_from_file(import_file_path)
+
     app.run(debug=True)
