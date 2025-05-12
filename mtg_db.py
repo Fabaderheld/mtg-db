@@ -107,7 +107,7 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 # Scryfall Cards Search Endpoint
 SCRYFALL_API_URL = "https://api.scryfall.com/cards/search?q="
 
-def fetch_adn_cache_legalities():
+def fetch_and_cache_legalities():
     response = requests.get("https://api.scryfall.com/sets")
     if response.status_code == 200:
         data = response.json()
@@ -259,22 +259,7 @@ def fetch_and_cache_cards(card_name=None, card_type=None, selected_colors=None, 
             colors.append(color)
 
         # Check if the set already exists in the database
-        existing_set = Set.query.get(card_data["set"])
-        if not existing_set:
-            # If the set doesn't exist, you might need to fetch its details from an external API or have a predefined list
-            # For now, let's assume you have a predefined list or fetch details from an API
-            # Here, we'll create a placeholder set with minimal information
-            new_set = Set(
-                id=card_data["set"],
-                name=f"Set {card_data['set']}",  # Placeholder name
-                code=card_data["set"],
-                icon_url="",  # Placeholder icon URL
-                released_at=""  # Placeholder release date
-            )
-            db.session.add(new_set)
-        else:
-            # Use the existing set
-            new_set = existing_set
+        new_set = Set.query.filter_by(code="lea").first()
 
         # Assign the list of Color objects to the colors attribute
         new_card = Card(
@@ -356,15 +341,7 @@ def card_detail(card_id):
 
     # Fetch the set details for the card
     card_sets = card.sets
-    set_details = []
-    for card_set in card_sets:
-        set_detail = {
-            'name': card_set.name,
-            'code': card_set.code,
-            'icon_url': card_set.icon_url,
-            'released_at': card_set.released_at
-        }
-        set_details.append(set_detail)
+    set_details = [s.code for s in card.sets]
 
     # Render the card details template
     return render_template('card_detail.html', card=card , set_details=set_details)
