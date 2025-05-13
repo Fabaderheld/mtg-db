@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div id="loading-spinner">
+    <div class="spinner"></div>
+    <p>Loading...</p>
+</div>
 <h1 class="mt-5">All Sets</h1>
 <div class="mb-3">
     <button type="button" class="btn btn-outline-primary me-2" id="sortByName">
@@ -16,10 +20,9 @@
         <div class="card h-100">
             <div class="card-body d-flex flex-column">
                 <h5 class="card-title">{{ set.name }}</h5>
-                <p class="card-text">{{ set.code }}</p>
                 {% if set.icon_url %}
-                <img src="{{ url_for('static', filename=card_set.local_icon_path) }}" alt="{{ card_set.name }}"
-                    max-height="100px">
+                <img src="{{ url_for('static', filename=set.local_icon_path) }}" alt="{{ set.name }}"
+                    style="max-height: 100px;">
                 {% else %}
                 {% endif %}
                 <a href="{{ url_for('cards.set_details', set_code=set.code) }}"
