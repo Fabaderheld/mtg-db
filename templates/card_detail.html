@@ -1,30 +1,48 @@
-<!-- templates/card_detail.html -->
 {% extends "base.html" %}
 
 {% block content %}
-<h1 class="mt-5">{{ card.name }}</h1>
-<div class="card mb-4">
-    {% if card.local_image_path %}
-    <img src="/{{ card.local_image_path }}" class="card-img-top" alt="{{ card.name }}"
-        style="height: 500px; width: auto; object-fit: contain;">
-    {% else %}
-    <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center"
-        style="height: 300px;">
-        No Image Available
+<div class="container mt-5">
+    <div class="row">
+        <!-- Left: Card image and details -->
+        <div class="col-md-5">
+            <div class="card mb-4">
+                {% if card.local_image_path %}
+                <img src="/{{ card.local_image_path }}" class="card-img-top" alt="{{ card.name }}"
+                    style="height: 500px; width: auto; object-fit: contain;">
+                {% else %}
+                <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center"
+                    style="height: 300px;">
+                    No Image Available
+                </div>
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ card.type_line }}</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Mana Cost:</strong> {{
+                            card.mana_costs|mana_icons(mana_icons) }}</li>
+                        <li class="list-group-item"><strong>Power/Toughness:</strong> {{ card.power }}/{{ card.toughness
+                            }}</li>
+                        <li class="list-group-item"><strong>Rarity:</strong> {{ card.rarity|capitalize }}</li>
+                        <li class="list-group-item">
+                            <strong>Set:</strong>
+                            <a href="{{ url_for('cards.set_details', set_code=card_set.code) }}">{{ card_set.name }}</a>
+                            <img src="{{ url_for('static', filename=card_set.local_icon_path) }}"
+                                alt="{{ card_set.name }}" style="max-height: 50px;">
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <!-- Right: Oracle text -->
+        <div class="col-md-7">
+            <div class="card h-100">
+                <div class="card-body">
+                    <p class="card-text" style="white-space: pre-line;">{{ card.oracle_text|oracle_icons(mana_icons) }}
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
-    {% endif %}
-    <div class="card-body">
-        <h5 class="card-title">{{ card.type_line }}</h5>
-        <p class="card-text">{{ card.text }}</p>
-        <ul class="list-group list-group-flush">
-            <li class="list-group-item"><strong>Mana Cost:</strong> {{ card.mana_costs|mana_icons(mana_icons) }}</li>
-            <li class="list-group-item"><strong>Power/Toughness:</strong> {{ card.power }}/{{ card.toughness }}</li>
-            <li class="list-group-item"><strong>Rarity:</strong> {{ card.rarity }}</li>
-            <li class="list-group-item"><strong>Set:</strong> {{ card_set.name }} <img
-                    src="{{ url_for('static', filename=card_set.local_icon_path) }}" alt="{{ card_set.name }}"
-                    style="max-height: 50px;"> </li>
-        </ul>
-    </div>
+    <a href="{{ url_for('cards.index') }}" class="btn btn-primary mt-3">Back to Search</a>
 </div>
-<a href="{{ url_for('cards.index') }}" class="btn btn-primary">Back to Search</a>
 {% endblock %}

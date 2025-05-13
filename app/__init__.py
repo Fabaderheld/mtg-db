@@ -75,6 +75,20 @@ def create_app():
                 html += symbol
         return Markup(html)
 
+    @app.template_filter('oracle_icons')
+    def oracle_icons_filter(text, mana_icons):
+        # Find all symbols like {1}, {R}, {T}, etc.
+        symbols = re.findall(r'\{.*?\}', text or "")
+        html = text or ""
+        for symbol in set(symbols):  # Use set to avoid replacing the same symbol multiple times
+            icon_path = mana_icons.get(symbol)
+            if icon_path:
+                icon_url = current_app.url_for('static', filename=icon_path)
+                img_tag = f'<img src="{icon_url}" alt="{symbol}" style="width:20px; height:20px; vertical-align:middle;">'
+                html = html.replace(symbol, img_tag)
+        return Markup(html)
+
+
     return app
 
 app = create_app()
