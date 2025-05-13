@@ -41,6 +41,7 @@ class Set(db.Model):
     code = db.Column(db.String)
     name = db.Column(db.String)
     icon_url = db.Column(db.String)
+    local_icon_path = db.Column(db.String)
     released_at = db.Column(db.String)
     set_type = db.Column(db.String)
 

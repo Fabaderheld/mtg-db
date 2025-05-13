@@ -1,11 +1,11 @@
-from flask import Flask
+from flask import Flask,current_app
 from .models import db
 from .routes import register_routes
 from .utils.helpers import fetch_and_cache_sets
 import logging
 import re
 import os
-
+from markupsafe import Markup
 
 def configure_logging(app):
     """Configure logging for the app."""
@@ -59,6 +59,21 @@ def create_app():
     with app.app_context():
         db.create_all()
         fetch_and_cache_sets()
+
+    @app.template_filter('mana_icons')
+    def mana_icons_filter(mana_cost, mana_icons):
+        import re
+        symbols = re.findall(r'\{.*?\}', mana_cost or "")
+        html = ""
+        for symbol in symbols:
+            icon_path = mana_icons.get(symbol)
+            if icon_path:
+                # Use current_app.url_for to generate the URL
+                icon_url = current_app.url_for('static', filename=icon_path)
+                html += f'<img src="{icon_url}" alt="{symbol}" style="width:20px; height:20px; vertical-align:middle;">'
+            else:
+                html += symbol
+        return Markup(html)
 
     return app
 

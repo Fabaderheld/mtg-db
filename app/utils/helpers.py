@@ -18,12 +18,31 @@ def fetch_and_cache_sets():
                 existing_set = Set.query.get(set_data.get("id"))
                 if not existing_set:
                     logging.debug(f"Processing set: {set_data['name']}")
-                    # Check if the set is already in the database
+                    icon_url = set_data.get("icon_svg_uri")
+                    local_icon_path = None
+                    if icon_url:
+                        # Save to static/sets_icons/{set_code}.svg
+                        filename = f"{set_data.get('code')}.svg"
+                        save_dir = os.path.join(current_app.static_folder, "sets_icons")
+                        os.makedirs(save_dir, exist_ok=True)
+                        save_path = os.path.join(save_dir, filename)
+                        # Download the image
+                        try:
+                            img_response = requests.get(icon_url)
+                            if img_response.status_code == 200:
+                                with open(save_path, "wb") as f:
+                                    f.write(img_response.content)
+                                # Store the relative path for HTML rendering
+                                local_icon_path = f"sets_icons/{filename}"
+                        except Exception as img_e:
+                            logging.error(f"Failed to download icon for set {set_data.get('code')}: {img_e}")
+
                     new_set = Set(
                         id=set_data.get("id"),
                         name=set_data.get("name"),
                         code=set_data.get("code"),
-                        icon_url=set_data.get("icon_svg_uri"),
+                        icon_url=icon_url,
+                        local_icon_path=local_icon_path,  # <-- Add this field to your model!
                         released_at=set_data.get("released_at")
                     )
                     db.session.add(new_set)
@@ -56,7 +75,7 @@ def download_image(url, filename):
         logging.error(f"Error downloading image: {e}")
         return False
 
-def fetch_and_cache_cards(card_name=None, card_type=None, selected_colors=None, selected_sets=None, search_string=None):
+def fetch_and_cache_cards(card_name=None, card_type=None, selected_colors=None, selected_sets=None, search_string=None, unique_cards=False):
     query_parts = []
     if card_name:
         query_parts.append(f'!"{card_name}"')
@@ -69,9 +88,14 @@ def fetch_and_cache_cards(card_name=None, card_type=None, selected_colors=None, 
     if search_string:
         query_parts.append(f'"{search_string}"')
 
+    # Add unique:prints to Scryfall query if unique_cards is True
+    if unique_cards:
+        query_parts.append("unique:prints")
+
     query = " ".join(query_parts)
     logging.info(f"Search Query: {query}")
 
+    # Build the base database query
     db_query = Card.query
     if card_name:
         db_query = db_query.filter(Card.name == card_name)
@@ -84,17 +108,37 @@ def fetch_and_cache_cards(card_name=None, card_type=None, selected_colors=None, 
     if search_string:
         db_query = db_query.filter(Card.name.ilike(f"%{search_string}%"))
 
-    existing_cards = db_query.all()
-    logging.info(f"Found {len(existing_cards)} matching cards in DB.")
+    # If unique_cards is True, modify the query to get one card per oracle_id
+    if unique_cards:
+        subquery = db_query.with_entities(
+            Card.oracle_id,
+            db.func.min(Card.id).label('min_id')
+        ).group_by(Card.oracle_id).subquery()
 
-    if existing_cards:
+        db_query = Card.query.join(
+            subquery,
+            Card.id == subquery.c.min_id
+        )
 
-        # filter out cards with the same oracle_id
+    db_count = db_query.count()
+    logging.info(f"Found {db_count} matching cards in DB.")
 
+    # Check Scryfall count
+    url = f"https://api.scryfall.com/cards/search?q={query}&page=1"
+    response = requests.get(url)
+    if response.status_code != 200:
+        logging.warning(f"Scryfall fetch failed: {response.status_code}")
+        return db_query.all()
 
-        return existing_cards
+    data = response.json()
+    api_count = data.get("total_cards", 0)
+    logging.info(f"Scryfall reports {api_count} matching cards.")
 
-    logging.info("No matching cards in DB. Fetching from Scryfall...")
+    if api_count <= db_count:
+        logging.info("Local DB is up to date with Scryfall.")
+        return db_query.all()
+
+    logging.info("Fetching new cards from Scryfall...")
     fetched_cards = []
     has_more = True
     page = 1
@@ -129,7 +173,6 @@ def fetch_and_cache_cards(card_name=None, card_type=None, selected_colors=None, 
                 save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
 
                 if download_image(image_url, save_path):
-                    # Store the relative path for HTML rendering
                     local_image_path = os.path.join(current_app.config['IMAGE_PATH'], filename)
 
             color_names = card_data.get("colors", [])
@@ -155,7 +198,6 @@ def fetch_and_cache_cards(card_name=None, card_type=None, selected_colors=None, 
                 power=card_data.get("power"),
                 toughness=card_data.get("toughness"),
                 rarity=card_data.get("rarity"),
-                #raw=json.dumps(card_data),
                 image_uri=card_data.get("image_uris", {}).get("normal"),
                 local_image_path=local_image_path,
                 legalities=json.dumps(card_data.get("legalities", {}))
@@ -174,3 +216,26 @@ def fetch_and_cache_cards(card_name=None, card_type=None, selected_colors=None, 
         logging.error(f"Error fetching cards: {e}")
         db.session.rollback()
         return []
+
+def fetch_and_cache_mana_icons():
+    response = requests.get("https://api.scryfall.com/symbology")
+    mana_icons = {}
+    if response.status_code == 200:
+        data = response.json()
+        os.makedirs("static/mana", exist_ok=True)
+        for symbol in data.get("data", []):
+            symbol_code = symbol["symbol"]  # e.g. "{R}", "{2}"
+            svg_url = symbol["svg_uri"]
+            # Clean the symbol for filename, e.g. {R} -> R, {2} -> 2, {W/U} -> WU, etc.
+            filename = symbol_code.replace("{", "").replace("}", "").replace("/", "").replace(" ", "") + ".svg"
+            local_path = os.path.join("static", "mana", filename)
+            # Download and cache if not already present
+            if not os.path.exists(local_path):
+                img_response = requests.get(svg_url)
+                if img_response.status_code == 200:
+                    with open(local_path, "wb") as f:
+                        f.write(img_response.content)
+                    time.sleep(0.05)  # 50ms delay
+            # Store the relative path for use in templates
+            mana_icons[symbol_code] = f"mana/{filename}"
+    return mana_icons

@@ -1,8 +1,10 @@
 from flask import Blueprint, request, jsonify, render_template
 from ..models import Card, Set
-from ..utils.helpers import download_image,fetch_and_cache_cards
+from ..utils.helpers import download_image,fetch_and_cache_cards, fetch_and_cache_mana_icons
 from ..models import db
 import logging
+
+
 
 card_bp = Blueprint("cards", __name__)
 
@@ -16,7 +18,7 @@ def index():
         if query:
             cards = fetch_and_cache_cards(search_string=query)
 
-    return render_template("index.html", cards=cards, error=error)
+    return render_template("card.index.html", cards=cards, error=error)
 
 
 @card_bp.route("/sets", methods=["GET"])
@@ -50,17 +52,57 @@ def set_details(set_code):
 
 @card_bp.route('/card/<card_id>')
 def card_detail(card_id):
-    # Fetch the card details from the database
     card = Card.query.get(card_id)
     if not card:
         return "Card not found", 404
 
-    # Fetch the set details for the card
-    card_sets = card.set
-    set_details = [s.code for s in card.set]
+    card_set = card.set if card.set else None
+    mana_icons = fetch_and_cache_mana_icons()  # Fetch mana icons from Scryfall API
 
-    # Render the card details template
-    return render_template('card_detail.html', card=card , set_details=set_details)
+    return render_template('card_detail.html', card=card, card_set=card_set, mana_icons=mana_icons)
+
+@card_bp.route("/advanced_search", methods=["GET", "POST"])
+def advanced_search():
+    # Now this runs inside the app/request context
+    sets = Set.query.all()
+    card_types = ["Creature", "Enchantment", "Instant", "Sorcery", "Artifact", "Land", "Planeswalker"]
+    colors = ["White", "Blue", "Black", "Red", "Green"]
+    mana_icons = fetch_and_cache_mana_icons()  # Fetch mana icons from Scryfall API
+
+
+    error = None
+    cards = []
+    total_items = 0
+
+    if request.method == "POST":
+        card_name = request.form.get("cardName")
+        card_type = request.form.get("cardType")
+        selected_colors = request.form.getlist("colors")
+        selected_sets = request.form.getlist("sets")
+        unique_oracle_id = request.form.get("unique_oracle_id") == "1"
+
+        try:
+            cards = fetch_and_cache_cards(
+                card_name=card_name,
+                card_type=card_type,
+                selected_colors=selected_colors,
+                selected_sets=selected_sets,
+                unique_oracle_id=unique_oracle_id
+            )
+            total_items = len(cards)
+        except Exception as e:
+            error = str(e)
+
+    return render_template(
+        "advanced_search.html",
+        cards=cards,
+        total_items=total_items,
+        card_types=card_types,
+        colors=colors,
+        sets=sets,
+        mana_icons=mana_icons,
+        error=error
+    )
 
 if __name__ == "__main__":
     with app.app_context():

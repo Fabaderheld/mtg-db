@@ -93,9 +93,8 @@
             <div class="form-check color-checkbox">
                 <input class="form-check-input" type="checkbox" name="colors" value="{{ color }}" id="color{{ color }}">
                 <label class="form-check-label" for="color{{ color }}">
-                    {% if mana_icons[color[0].upper()] %}
-                    <img src="{{ mana_icons[color[0].upper()] }}"
-                        style="width: 20px; height: 20px; vertical-align: middle;">
+                    {% if mana_icons[color] %}
+                    <img src="{{ mana_icons[color] }}" style="width: 20px; height: 20px; vertical-align: middle;">
                     {% endif %}
                     {{ color }}
                 </label>
@@ -122,7 +121,7 @@
                         <label class="form-check-label" for="set{{ set.code }}">
                             <img src="{{ set.icon_url }}"
                                 style="width: 20px; height: 20px; margin-right: 10px; vertical-align: middle;">
-                            {{ set.name }} - {{ set.code }}
+                            {{ set.name }}
                         </label>
                     </div>
                     {% endfor %}
@@ -131,6 +130,15 @@
         </div>
     </div>
     <!-- Add more fields as needed -->
+    <div class="mb-3">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="unique_oracle_id" value="1" id="uniqueOracleId">
+            <label class="form-check-label" for="uniqueOracleId">
+                Show only unique cards (one print per card)
+            </label>
+        </div>
+    </div>
+    <button type="submit" class="btn btn-dark">Search</button>
     <button type="submit" class="btn btn-dark">Search</button>
 </form>
 

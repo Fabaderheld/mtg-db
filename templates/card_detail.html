@@ -17,12 +17,14 @@
         <h5 class="card-title">{{ card.type_line }}</h5>
         <p class="card-text">{{ card.text }}</p>
         <ul class="list-group list-group-flush">
-            <li class="list-group-item"><strong>Mana Cost:</strong> {{ card.mana_costs }}</li>
+            <li class="list-group-item"><strong>Mana Cost:</strong> {{ card.mana_costs|mana_icons(mana_icons) }}</li>
             <li class="list-group-item"><strong>Power/Toughness:</strong> {{ card.power }}/{{ card.toughness }}</li>
             <li class="list-group-item"><strong>Rarity:</strong> {{ card.rarity }}</li>
-            <li class="list-group-item"><strong>Set:</strong> {{ set_details}}</li>
+            <li class="list-group-item"><strong>Set:</strong> {{ card_set.name }} <img
+                    src="{{ url_for('static', filename=card_set.local_icon_path) }}" alt="{{ card_set.name }}"
+                    style="max-height: 50px;"> </li>
         </ul>
     </div>
 </div>
-<a href="{{ url_for('index') }}" class="btn btn-primary">Back to Search</a>
+<a href="{{ url_for('cards.index') }}" class="btn btn-primary">Back to Search</a>
 {% endblock %}

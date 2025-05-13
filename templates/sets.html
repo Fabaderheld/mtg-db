@@ -18,7 +18,9 @@
                 <h5 class="card-title">{{ set.name }}</h5>
                 <p class="card-text">{{ set.code }}</p>
                 {% if set.icon_url %}
-                <img src="{{ set.icon_url }}" class="img-fluid mt-auto" alt="{{ set.name }}" style="max-height: 100px;">
+                <img src="{{ url_for('static', filename=card_set.local_icon_path) }}" alt="{{ card_set.name }}"
+                    max-height="100px">
+                {% else %}
                 {% endif %}
                 <a href="{{ url_for('cards.set_details', set_code=set.code) }}"
                     class="btn btn-primary mt-3 view-cards-btn">View Cards in
