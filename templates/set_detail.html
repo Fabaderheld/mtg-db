@@ -10,7 +10,7 @@
     <div class="col-md-3 mb-4">
         <div class="card h-100">
             {% if card.local_image_path %}
-            <a href="{{ url_for('card_detail', card_id=card.id) }}">
+            <a href="{{ url_for('cards.card_detail', card_id=card.id) }}">
                 <img src="/{{ card.local_image_path }}" class="card-img-top" alt="{{ card.name }}">
             </a>
             {% else %}

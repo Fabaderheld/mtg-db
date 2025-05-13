@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify, render_template
 from ..models import Card, Set
-from ..utils.helpers import download_image
+from ..utils.helpers import download_image,fetch_and_cache_cards
 from ..models import db
+import logging
 
 card_bp = Blueprint("cards", __name__)
 
@@ -38,8 +39,8 @@ def sets():
 
     return render_template("sets.html", sets=sets)
 
-@card_bp.route("/set/<set_code>")
-def set_detail(set_code):
+@card_bp.route("/sets/<set_code>", endpoint='set_details')
+def set_details(set_code):
     logging.info("⚙️ fetch_and_cache_cards triggered")
     cards = fetch_and_cache_cards(selected_sets=[set_code])
     selected_set = Set.query.filter_by(code=set_code).first()
@@ -55,8 +56,8 @@ def card_detail(card_id):
         return "Card not found", 404
 
     # Fetch the set details for the card
-    card_sets = card.sets
-    set_details = [s.code for s in card.sets]
+    card_sets = card.set
+    set_details = [s.code for s in card.set]
 
     # Render the card details template
     return render_template('card_detail.html', card=card , set_details=set_details)

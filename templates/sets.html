@@ -20,7 +20,7 @@
                 {% if set.icon_url %}
                 <img src="{{ set.icon_url }}" class="img-fluid mt-auto" alt="{{ set.name }}" style="max-height: 100px;">
                 {% endif %}
-                <a href="{{ url_for('set_detail', set_code=set.code) }}"
+                <a href="{{ url_for('cards.set_details', set_code=set.code) }}"
                     class="btn btn-primary mt-3 view-cards-btn">View Cards in
                     Set</a>
             </div>

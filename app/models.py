@@ -6,6 +6,7 @@ class Card(db.Model):
     __tablename__ = 'card'
 
     id = db.Column(db.String, primary_key=True)  # Scryfall ID
+    oracle_id = db.Column(db.String, index=True)  # Scryfall Oracle ID
     name = db.Column(db.String, index=True)
     layout = db.Column(db.String)
     mana_cost = db.Column(db.String)
@@ -20,10 +21,12 @@ class Card(db.Model):
     set_code = db.Column(db.String, db.ForeignKey('set.code'))
     lang = db.Column(db.String)
     released_at = db.Column(db.String)
-
+    mana_costs = db.Column(db.String)
     image_uri = db.Column(db.String)
+    local_image_path = db.Column(db.String)
     scryfall_uri = db.Column(db.String)
     rulings_uri = db.Column(db.String)
+    legalities = db.Column(db.Text)
     prints_search_uri = db.Column(db.String)
 
     # Relationships
@@ -34,8 +37,10 @@ class Card(db.Model):
 class Set(db.Model):
     __tablename__ = 'set'
 
-    code = db.Column(db.String, primary_key=True)
+    id = db.Column(db.String, primary_key=True)
+    code = db.Column(db.String)
     name = db.Column(db.String)
+    icon_url = db.Column(db.String)
     released_at = db.Column(db.String)
     set_type = db.Column(db.String)
 
@@ -66,4 +71,10 @@ card_colors = db.Table('card_colors',
 card_types = db.Table('card_types',
     db.Column('card_id', db.String, db.ForeignKey('card.id'), primary_key=True),
     db.Column('type_id', db.String, db.ForeignKey('type.id'), primary_key=True)
+)
+
+# Define the association table for the many-to-many relationship between Card and Set
+card_sets = db.Table('card_sets',
+    db.Column('card_id', db.String, db.ForeignKey('card.id'), primary_key=True),
+    db.Column('set_code', db.String, db.ForeignKey('set.code'), primary_key=True)  # Reference 'set.code' instead of 'set.id'
 )
