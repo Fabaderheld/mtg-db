@@ -18,7 +18,7 @@ def index():
         if query:
             cards = fetch_and_cache_cards(search_string=query)
 
-    return render_template("card.index.html", cards=cards, error=error)
+    return render_template("index.html", cards=cards, error=error)
 
 
 @card_bp.route("/sets", methods=["GET"])

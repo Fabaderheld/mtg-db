@@ -82,3 +82,17 @@ body {
     margin: 20px;
     font-family: Arial, sans-serif;
 }
+
+a,
+a:visited {
+    color: #000 !important;
+    text-decoration: underline;
+    /* or 'none' if you don't want underlines */
+}
+
+a:hover,
+a:focus {
+    color: #444 !important;
+    /* or any dark shade you prefer */
+    text-decoration: underline;
+}
