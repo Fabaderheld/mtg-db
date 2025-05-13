@@ -2,14 +2,14 @@
 
 {% block content %}
 
-<!-- Loading spinner -->
-<div id="loading-spinner" style="display: none;">
+<!-- Loading spinner overlay -->
+<div id="loading-spinner">
     <div class="spinner"></div>
     <p>Loading...</p>
 </div>
 
 <h1 class="mt-5">Search Magic: The Gathering Cards</h1>
-<form method="post" class="mb-4">
+<form id="searchForm" method="post" class="mb-4">
     <div class="input-group">
         <input type="text" class="form-control" name="query" placeholder="e.g. goblin" required>
         <button class="btn btn-dark" type="submit">Search</button>
@@ -49,5 +49,20 @@
     </div>
     {% endfor %}
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchForm = document.getElementById('searchForm');
+        if (searchForm) {
+            searchForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                showLoading();
+                setTimeout(() => {
+                    searchForm.submit();
+                }, 50);
+            });
+        }
+    });
+</script>
 <script src="{{ url_for('static', filename='js/Loading.js') }}"></script>
 {% endblock %}
