@@ -41,13 +41,28 @@ def sets():
 
     return render_template("sets.html", sets=sets)
 
-@card_bp.route("/sets/<set_code>", endpoint='set_details')
-def set_details(set_code):
-    logging.info("⚙️ fetch_and_cache_cards triggered")
-    cards = fetch_and_cache_cards(selected_sets=[set_code])
-    selected_set = Set.query.filter_by(code=set_code).first()
+@card_bp.route('/sets/<set_code>')
+def show_set(set_code):
+    page = request.args.get('page', 1, type=int)
+    selected_set = Set.query.filter_by(code=set_code).first_or_404()
+    cards = fetch_and_cache_cards(
+        selected_sets=[set_code],
+        page=page,
+        per_page=20
+    )
 
-    return render_template("set_detail.html", selected_set=selected_set, cards=cards)
+    # If AJAX, return only the cards grid partial
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        if not cards:
+            return '', 204  # No Content
+        return render_template('partials/card_grid.html', cards=cards)
+
+    # Otherwise, render the full page
+    return render_template(
+        'set_detail.html',
+        cards=cards,
+        selected_set=selected_set
+    )
 
 
 @card_bp.route('/card/<card_id>')

@@ -75,97 +75,84 @@ def download_image(url, filename):
         logging.error(f"Error downloading image: {e}")
         return False
 
-def fetch_and_cache_cards(card_name=None, card_type=None, selected_colors=None, selected_sets=None, search_string=None, unique_cards=False):
-    query_parts = []
-    if card_name:
-        query_parts.append(f'!"{card_name}"')
-    if card_type:
-        query_parts.append(f't:{card_type}')
-    if selected_colors:
-        query_parts.append(" ".join([f'c:{color}' for color in selected_colors]))
-    if selected_sets:
-        query_parts.append(" ".join([f's:{set_code}' for set_code in selected_sets]))
-    if search_string:
-        query_parts.append(f'"{search_string}"')
-
-    # Add unique:prints to Scryfall query if unique_cards is True
-    if unique_cards:
-        query_parts.append("unique:prints")
-
-    query = " ".join(query_parts)
-    logging.info(f"Search Query: {query}")
-
-    # Build the base database query
-    db_query = Card.query
-    if card_name:
-        db_query = db_query.filter(Card.name == card_name)
-    if card_type:
-        db_query = db_query.filter(Card.type_line.ilike(f"%{card_type}%"))
-    if selected_colors:
-        db_query = db_query.join(card_colors).join(Color).filter(Color.name.in_(selected_colors))
-    if selected_sets:
-        db_query = db_query.filter(Card.set.has(Set.code.in_(selected_sets)))
-    if search_string:
-        db_query = db_query.filter(Card.name.ilike(f"%{search_string}%"))
-
-    # If unique_cards is True, modify the query to get one card per oracle_id
-    if unique_cards:
-        subquery = db_query.with_entities(
-            Card.oracle_id,
-            db.func.min(Card.id).label('min_id')
-        ).group_by(Card.oracle_id).subquery()
-
-        db_query = Card.query.join(
-            subquery,
-            Card.id == subquery.c.min_id
-        )
-
-    db_count = db_query.count()
-    logging.info(f"Found {db_count} matching cards in DB.")
-
-    # Check Scryfall count
-    url = f"https://api.scryfall.com/cards/search?q={query}&page=1"
-    response = requests.get(url)
-    if response.status_code != 200:
-        logging.warning(f"Scryfall fetch failed: {response.status_code}")
-        return db_query.all()
-
-    data = response.json()
-    api_count = data.get("total_cards", 0)
-    logging.info(f"Scryfall reports {api_count} matching cards.")
-
-    if api_count <= db_count:
-        logging.info("Local DB is up to date with Scryfall.")
-        return db_query.all()
-
-    logging.info("Fetching new cards from Scryfall...")
-    fetched_cards = []
-    has_more = True
-    page = 1
-
+def fetch_and_cache_cards(
+    card_name=None,
+    card_type=None,
+    selected_colors=None,
+    selected_sets=None,
+    search_string=None,
+    unique_cards=False,
+    page=1,          # Add page parameter
+    per_page=20      # Add per_page parameter
+):
     try:
-        while has_more:
-            url = f"https://api.scryfall.com/cards/search?q={query}&page={page}"
-            logging.info(f"Fetching page {page}: {url}")
-            response = requests.get(url)
-            time.sleep(0.05)
+        # Build query parts (same as before)
+        query_parts = []
+        if card_name:
+            query_parts.append(f'!"{card_name}"')
+        if card_type:
+            query_parts.append(f't:{card_type}')
+        if selected_colors:
+            query_parts.append(" ".join([f'c:{color}' for color in selected_colors]))
+        if selected_sets:
+            query_parts.append(" ".join([f's:{set_code}' for set_code in selected_sets]))
+        if search_string:
+            query_parts.append(f'"{search_string}"')
+        if unique_cards:
+            query_parts.append("unique:prints")
 
-            if response.status_code != 200:
-                logging.warning(f"Scryfall fetch failed: {response.status_code}")
-                break
+        query = " ".join(query_parts)
+        logging.info(f"Search Query: {query}, Page: {page}")
 
-            data = response.json()
-            cards_data = data.get("data", [])
-            fetched_cards.extend(cards_data)
-            has_more = data.get("has_more", False)
-            page += 1
+        # Build the base database query
+        db_query = Card.query
+        if card_name:
+            db_query = db_query.filter(Card.name == card_name)
+        if card_type:
+            db_query = db_query.filter(Card.type_line.ilike(f"%{card_type}%"))
+        if selected_colors:
+            db_query = db_query.join(card_colors).join(Color).filter(Color.name.in_(selected_colors))
+        if selected_sets:
+            db_query = db_query.filter(Card.set.has(Set.code.in_(selected_sets)))
+        if search_string:
+            db_query = db_query.filter(Card.name.ilike(f"%{search_string}%"))
 
-        for card_data in fetched_cards:
-            logging.debug(f"Processing card: {card_data['name']}")
-            existing_card = Card.query.get(card_data["id"])
-            if existing_card:
+        # Handle unique cards
+        if unique_cards:
+            subquery = db_query.with_entities(
+                Card.oracle_id,
+                db.func.min(Card.id).label('min_id')
+            ).group_by(Card.oracle_id).subquery()
+            db_query = Card.query.join(subquery, Card.id == subquery.c.min_id)
+
+        # Apply pagination to database query
+        paginated_cards = db_query.order_by(Card.name).offset((page - 1) * per_page).limit(per_page).all()
+
+        # If we have enough cards for this page, return them
+        if len(paginated_cards) == per_page:
+            return paginated_cards
+
+        # If we need to fetch from Scryfall
+        url = f"https://api.scryfall.com/cards/search"
+        params = {
+            'q': query or 'set:default',
+            'page': page
+        }
+
+        response = requests.get(url, params=params)
+        if response.status_code != 200:
+            logging.warning(f"Scryfall fetch failed: {response.status_code}")
+            return paginated_cards
+
+        data = response.json()
+        new_cards = []
+
+        for card_data in data.get("data", []):
+            # Skip if card exists
+            if Card.query.get(card_data["id"]):
                 continue
 
+            # Process image
             image_url = card_data.get("image_uris", {}).get("normal")
             local_image_path = None
             if image_url:
@@ -173,21 +160,27 @@ def fetch_and_cache_cards(card_name=None, card_type=None, selected_colors=None, 
                 save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
 
                 if download_image(image_url, save_path):
-                    local_image_path = os.path.join(current_app.config['IMAGE_PATH'], filename)
+                    local_image_path = os.path.join(
+                        current_app.config['IMAGE_PATH'],
+                        filename
+                    )
 
-            color_names = card_data.get("colors", [])
+            # Process colors
             colors = []
-            for color_name in color_names:
+            for color_name in card_data.get("colors", []):
                 color = Color.query.filter_by(name=color_name).first()
                 if not color:
                     color_id = f"color_{color_name}"
                     color = Color(id=color_id, name=color_name)
                     db.session.add(color)
-                    db.session.flush()
                 colors.append(color)
 
-            new_set = Set.query.filter_by(code=card_data.get("set")).first()
+            # Get or create set
+            card_set = None
+            if 'set' in card_data:
+                card_set = Set.query.filter_by(code=card_data['set']).first()
 
+            # Create new card
             new_card = Card(
                 id=card_data["id"],
                 oracle_id=card_data.get("oracle_id"),
@@ -198,25 +191,39 @@ def fetch_and_cache_cards(card_name=None, card_type=None, selected_colors=None, 
                 power=card_data.get("power"),
                 toughness=card_data.get("toughness"),
                 rarity=card_data.get("rarity"),
-                image_uri=card_data.get("image_uris", {}).get("normal"),
+                image_uri=image_url,
                 local_image_path=local_image_path,
                 legalities=json.dumps(card_data.get("legalities", {}))
             )
 
             new_card.colors = colors
-            if new_set:
-                new_card.set = new_set
+            if card_set:
+                new_card.set = card_set
 
             db.session.add(new_card)
+            new_cards.append(new_card)
 
-        db.session.commit()
+        if new_cards:
+            try:
+                db.session.commit()
+            except Exception as e:
+                logging.error(f"Error committing to database: {e}")
+                db.session.rollback()
+                return paginated_cards
 
-        return db_query.all()
+        # Query again with pagination to get the complete set
+        final_cards = db_query.order_by(Card.name).offset((page - 1) * per_page).limit(per_page).all()
+
+        # If no cards found for this page, return empty list to signal end of results
+        if not final_cards:
+            return []
+
+        return final_cards
+
     except Exception as e:
-        logging.error(f"Error fetching cards: {e}")
+        logging.error(f"Error in fetch_and_cache_cards: {e}")
         db.session.rollback()
         return []
-
 def fetch_and_cache_mana_icons():
     response = requests.get("https://api.scryfall.com/symbology")
     mana_icons = {}
