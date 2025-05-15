@@ -5,26 +5,13 @@
         style="max-height: 100px;"> {{ selected_set.name }}</h1>
 <p>Released: {{ selected_set.released_at }}</p>
 
-<div class="row">
-    {% for card in cards %}
-    <div class="col-md-3 mb-4">
-        <div class="card h-100">
-            {% if card.local_image_path %}
-            <a href="{{ url_for('cards.card_detail', card_id=card.id) }}">
-                <img src="/{{ card.local_image_path }}" class="card-img-top" alt="{{ card.name }}">
-            </a>
-            {% else %}
-            {% endif %}
-            <div class="card-body">
-                <h5 class="card-title">{{ card.name }}</h5>
-                <p class="card-text">{{ card.type_line }}</p>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
+<div id="card-list" class="row">
+    {% include "partials/card_grid.html" %}
 </div>
 
 {% if not cards %}
 <p>No cards found in this set.</p>
 {% endif %}
+
+<script src="{{ url_for('static', filename='js/infinite_scroll.js') }}"></script>
 {% endblock %}
