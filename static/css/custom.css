@@ -163,8 +163,6 @@ a:focus {
 }
 
 .card {
-    min-height: 420px;
-    /* Adjust as needed for your content */
     display: flex;
     flex-direction: column;
     border-radius: 12px;
