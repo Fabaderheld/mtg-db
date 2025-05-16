@@ -25,7 +25,7 @@
                         <li class="list-group-item"><strong>Rarity:</strong> {{ card.rarity|capitalize }}</li>
                         <li class="list-group-item">
                             <strong>Set:</strong>
-                            <a href="{{ url_for('cards.set_details', set_code=card_set.code) }}">{{ card_set.name }}</a>
+                            <a href="{{ url_for('cards.set_detail', set_code=card_set.code) }}">{{ card_set.name }}</a>
                             <img src="{{ url_for('static', filename=card_set.local_icon_path) }}"
                                 alt="{{ card_set.name }}" style="max-height: 50px;">
                         </li>

@@ -49,6 +49,10 @@ body {
     height: 100%;
     display: flex;
     flex-direction: column;
+    background: transparent !important;
+    box-shadow: none;
+    /* Optional: remove shadow if you want full transparency */
+
 }
 
 .card-body {
@@ -134,4 +138,213 @@ a:focus {
     100% {
         transform: rotate(360deg);
     }
+}
+
+.form-section {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    padding: 24px 20px 16px 20px;
+    margin-bottom: 24px;
+}
+
+.form-label {
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+.form-control,
+.form-select {
+    border-radius: 6px;
+    border: 1px solid #d1cfc7;
+    background: #f8f5f0;
+    font-family: 'Beleren', sans-serif;
+}
+
+.card {
+    min-height: 420px;
+    /* Adjust as needed for your content */
+    display: flex;
+    flex-direction: column;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+    transition: transform 0.15s, box-shadow 0.15s;
+    background: #fff;
+    margin-bottom: 24px;
+}
+
+.card-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+
+.card-img-top {
+    display: block;
+    margin: 0 auto 12px auto;
+    height: 550px;
+    /* or 320px, or whatever you prefer */
+    width: 100%;
+    object-fit: contain;
+    background: #f8f5f0;
+    border-radius: 8px 8px 0 0;
+}
+
+.set-checkbox-container {
+    column-count: 2;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+@media (min-width: 768px) {
+    .set-checkbox-container {
+        column-count: 4;
+    }
+}
+
+.form-check {
+    margin-bottom: 8px;
+}
+
+#setsCollapse .card-body {
+    background: #f5f5f5;
+    border-radius: 8px;
+}
+
+#checkAll,
+#uncheckAll {
+    margin-right: 8px;
+    font-size: 0.95em;
+}
+
+
+.color-checkbox label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+}
+
+.color-checkbox .color-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: inline-block;
+    border: 1px solid #aaa;
+}
+
+.color-checkbox .color-dot.white {
+    background: var(--mtg-white);
+}
+
+.color-checkbox .color-dot.blue {
+    background: var(--mtg-blue);
+}
+
+.color-checkbox .color-dot.black {
+    background: var(--mtg-black);
+}
+
+.color-checkbox .color-dot.red {
+    background: var(--mtg-red);
+}
+
+.color-checkbox .color-dot.green {
+    background: var(--mtg-green);
+}
+
+/* Make all links and .btn-link black, not green */
+a,
+a:visited,
+.btn-link,
+.btn-link:visited {
+    color: #000 !important;
+    text-decoration: underline;
+    background: none !important;
+    border: none !important;
+}
+
+/* On hover, keep them black or dark gray, no background */
+a:hover,
+a:focus,
+.btn-link:hover,
+.btn-link:focus {
+    color: #444 !important;
+    text-decoration: underline;
+    background: none !important;
+    box-shadow: none !important;
+}
+
+/* Remove underline from .btn-link if you want it to look like a button */
+.btn-link,
+.btn-link:visited {
+    text-decoration: none !important;
+}
+
+.btn-link:hover,
+.btn-link:focus {
+    text-decoration: underline !important;
+}
+
+.sets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 24px;
+}
+
+.square-card {
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.square-card .card-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    padding: 16px;
+}
+
+.square-card .card-title {
+    font-size: 1.25rem;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.square-card .set-icon {
+    max-width: 80%;
+    max-height: 120px;
+    margin-bottom: auto;
+    /* Push image to the top */
+    object-fit: contain;
+}
+
+.square-card .view-cards-btn {
+    margin-top: auto;
+    /* Push button to the bottom */
+    width: 100%;
+}
+
+.set-link {
+    text-decoration: none !important;
+    color: inherit !important;
+    cursor: pointer;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.set-link:hover .card-title {
+    text-decoration: underline;
 }
