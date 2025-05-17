@@ -1,92 +1,94 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div id="loading-spinner">
-    <div class="spinner"></div>
-    <p>Loading...</p>
-</div>
-<h1 class="mt-5">All Sets</h1>
-<div class="mb-3">
-    <button type="button" class="btn btn-outline-primary me-2" id="sortByName">
-        Sort by Name <span id="nameSortIndicator"></span>
-    </button>
-    <button type="button" class="btn btn-outline-primary" id="sortByDate">
-        Sort by Release Date <span id="dateSortIndicator"></span>
-    </button>
-</div>
-<div class="container mt-4" id="setsContainer">
-    <div class="sets-grid">
-        {% for set in sets %}
-        <div class="square-card card">
-            <div class="card-body d-flex flex-column justify-content-center align-items-center">
-                <a href="{{ url_for('cards.set_detail', set_code=set.code) }}"
-                    class="set-link text-decoration-none text-dark d-flex flex-column align-items-center w-100">
-                    <h5 class="card-title mb-2">{{ set.name }}</h5>
-                    {% if set.icon_url %}
-                    <img class="set-icon" src="{{ url_for('static', filename=set.local_icon_path) }}"
-                        alt="{{ set.name }}" style="max-height: 100px;">
-                    {% endif %}
-                </a>
-            </div>
-        </div>
-        {% endfor %}
+<div id="sets-page"> <!-- Added ID here -->
+    <div id="loading-spinner">
+        <div class="spinner"></div>
+        <p>Loading...</p>
     </div>
-</div>
+    <h1 class="mt-5">All Sets</h1>
+    <div class="mb-3">
+        <button type="button" class="btn btn-outline-primary me-2" id="sortByName">
+            Sort by Name <span id="nameSortIndicator"></span>
+        </button>
+        <button type="button" class="btn btn-outline-primary" id="sortByDate">
+            Sort by Release Date <span id="dateSortIndicator"></span>
+        </button>
+    </div>
+    <div class="container" id="setsContainer">
+        <div class="sets-grid">
+            {% for set in sets %}
+            <div class="card">
+                <div class="card-body d-flex flex-column justify-content-center align-items-center">
+                    <a href="{{ url_for('cards.set_detail', set_code=set.code) }}"
+                        class="set-link text-decoration-none text-dark d-flex flex-column align-items-center w-100">
+                        <h5 class="card-title mb-2">{{ set.name }}</h5>
+                        {% if set.icon_url %}
+                        <img class="set-icon" src="{{ url_for('static', filename=set.local_icon_path) }}"
+                            alt="{{ set.name }}" style="max-height: 100px;">
+                        {% endif %}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
 
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const sortByNameButton = document.getElementById('sortByName');
-        const sortByDateButton = document.getElementById('sortByDate');
-        const setsContainer = document.getElementById('setsContainer');
-        const nameSortIndicator = document.getElementById('nameSortIndicator');
-        const dateSortIndicator = document.getElementById('dateSortIndicator');
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const sortByNameButton = document.getElementById('sortByName');
+            const sortByDateButton = document.getElementById('sortByDate');
+            const setsContainer = document.getElementById('setsContainer');
+            const nameSortIndicator = document.getElementById('nameSortIndicator');
+            const dateSortIndicator = document.getElementById('dateSortIndicator');
 
-        let sortByNameDirection = 'asc';
-        let sortByDateDirection = 'asc';
+            let sortByNameDirection = 'asc';
+            let sortByDateDirection = 'asc';
 
-        function attachViewCardListeners() {
-            document.querySelectorAll('.view-cards-btn').forEach(button => {
-                const href = button.getAttribute('href');
-                button.addEventListener('click', (e) => {
-                    e.preventDefault();         // Stop immediate navigation
-                    showLoading();              // Show spinner
-                    setTimeout(() => {
-                        window.location.href = href;  // Navigate after delay
-                    }, 100);                   // Small delay (~100ms)
+            function attachViewCardListeners() {
+                document.querySelectorAll('.view-cards-btn').forEach(button => {
+                    const href = button.getAttribute('href');
+                    button.addEventListener('click', (e) => {
+                        e.preventDefault();         // Stop immediate navigation
+                        showLoading();              // Show spinner
+                        setTimeout(() => {
+                            window.location.href = href;  // Navigate after delay
+                        }, 100);                   // Small delay (~100ms)
+                    });
                 });
+            }
+
+            function updateSetsFromResponse(html) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                setsContainer.innerHTML = doc.querySelector('#setsContainer').innerHTML;
+                attachViewCardListeners(); // Reattach to new buttons
+            }
+
+            sortByNameButton.addEventListener('click', function () {
+                sortByNameDirection = sortByNameDirection === 'asc' ? 'desc' : 'asc';
+                nameSortIndicator.textContent = sortByNameDirection === 'asc' ? '↑' : '↓';
+                dateSortIndicator.textContent = '';
+
+                fetch(`/sets?sort=name&direction=${sortByNameDirection}`)
+                    .then(response => response.text())
+                    .then(updateSetsFromResponse);
             });
-        }
 
-        function updateSetsFromResponse(html) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            setsContainer.innerHTML = doc.querySelector('#setsContainer').innerHTML;
-            attachViewCardListeners(); // Reattach to new buttons
-        }
+            sortByDateButton.addEventListener('click', function () {
+                sortByDateDirection = sortByDateDirection === 'asc' ? 'desc' : 'asc';
+                dateSortIndicator.textContent = sortByDateDirection === 'asc' ? '↑' : '↓';
+                nameSortIndicator.textContent = '';
 
-        sortByNameButton.addEventListener('click', function () {
-            sortByNameDirection = sortByNameDirection === 'asc' ? 'desc' : 'asc';
-            nameSortIndicator.textContent = sortByNameDirection === 'asc' ? '↑' : '↓';
-            dateSortIndicator.textContent = '';
+                fetch(`/sets?sort=date&direction=${sortByDateDirection}`)
+                    .then(response => response.text())
+                    .then(updateSetsFromResponse);
+            });
 
-            fetch(`/sets?sort=name&direction=${sortByNameDirection}`)
-                .then(response => response.text())
-                .then(updateSetsFromResponse);
+            attachViewCardListeners(); // Initial setup
         });
+    </script>
 
-        sortByDateButton.addEventListener('click', function () {
-            sortByDateDirection = sortByDateDirection === 'asc' ? 'desc' : 'asc';
-            dateSortIndicator.textContent = sortByDateDirection === 'asc' ? '↑' : '↓';
-            nameSortIndicator.textContent = '';
-
-            fetch(`/sets?sort=date&direction=${sortByDateDirection}`)
-                .then(response => response.text())
-                .then(updateSetsFromResponse);
-        });
-
-        attachViewCardListeners(); // Initial setup
-    });
-</script>
-
-<script src="{{ url_for('static', filename='js/Loading.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/Loading.js') }}"></script>
+</div>
 {% endblock %}

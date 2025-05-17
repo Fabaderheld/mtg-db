@@ -346,3 +346,52 @@ a:focus,
 .set-link:hover .card-title {
     text-decoration: underline;
 }
+
+
+
+h2 {
+    margin-bottom: 18px;
+    color: #333;
+    letter-spacing: 1px;
+}
+
+.reprint-list {
+    padding: 0;
+}
+
+.reprint-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.set-name {
+    font-style: italic;
+    color: #444;
+    font-size: 1.1em;
+}
+
+.set-icon {
+    height: 25px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.reprint-divider {
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    margin: 8px 0;
+}
+
+.card.no-hover:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+#sets-page .set-icon {
+    height: 50px;
+    width: 50px;
+    object-fit: contain;
+    /* Ensure the image scales proportionally */
+}

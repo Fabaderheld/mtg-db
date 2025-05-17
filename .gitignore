@@ -10,3 +10,4 @@ app/routes/__pycache__/*
 app/utils/__pycache__/*
 static/mana/*
 static/sets_icons/*
+.DS_Store

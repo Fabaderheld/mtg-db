@@ -5,7 +5,7 @@
     <div class="row">
         <!-- Left: Card image and details -->
         <div class="col-md-5">
-            <div class="card mb-4">
+            <div class="card mb-4 no-hover">
                 {% if card.local_image_path %}
                 <img src="/{{ card.local_image_path }}" class="card-img-top" alt="{{ card.name }}"
                     style="height: 500px; width: auto; object-fit: contain;">
@@ -27,7 +27,7 @@
                             <strong>Set:</strong>
                             <a href="{{ url_for('cards.set_detail', set_code=card_set.code) }}">{{ card_set.name }}</a>
                             <img src="{{ url_for('static', filename=card_set.local_icon_path) }}"
-                                alt="{{ card_set.name }}" style="max-height: 50px;">
+                                alt="{{ card_set.name }}" style="max-height: 25px;">
                         </li>
                     </ul>
                 </div>
@@ -35,14 +35,34 @@
         </div>
         <!-- Right: Oracle text -->
         <div class="col-md-7">
-            <div class="card h-100">
-                <div class="card-body">
-                    <p class="card-text" style="white-space: pre-line;">{{ card.oracle_text|oracle_icons(mana_icons) }}
+            <div class="card h-100 no-hover">
+                <div class="card-body d-flex justify-content-center align-items-center">
+                    <p class="card-text text-center" style="white-space: pre-line;">{{
+                        card.oracle_text|oracle_icons(mana_icons) }}
                     </p>
                 </div>
             </div>
         </div>
+        <div class="col-12 mt-4">
+            <div class="card mb-4 no-hover">
+                <div class="card-body">
+                    <h5 class="card-title">Reprints</h5>
+                    {% if reprints %}
+                    <ul class="list-group list-group-flush">
+                        {% for reprint in reprints %}
+                        <li class="list-group-item d-flex align-items-center">
+                            <span class="set-name flex-grow-1">{{ reprint.set.name }}</span>
+                            <img src="{{ url_for('static', filename=reprint.set.local_icon_path) }}"
+                                alt="{{ reprint.set.name }} Icon" class="set-icon ms-2" />
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="mb-0">No reprints found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <a href="{{ url_for('cards.index') }}" class="btn btn-primary mt-3">Back to Search</a>
     </div>
-    <a href="{{ url_for('cards.index') }}" class="btn btn-primary mt-3">Back to Search</a>
-</div>
-{% endblock %}
+    {% endblock %}

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, render_template
 from ..models import Card, Set
-from ..utils.helpers import download_image,fetch_and_cache_cards, fetch_and_cache_mana_icons
+from ..utils.helpers import download_image,fetch_and_cache_cards, fetch_and_cache_mana_icons, fetch_reprints
 from ..models import db
 import logging
 
@@ -85,8 +85,10 @@ def card_detail(card_id):
 
     card_set = card.set if card.set else None
     mana_icons = fetch_and_cache_mana_icons()  # Fetch mana icons from Scryfall API
+    reprints = fetch_reprints(card)  # Fetch reprints from Scryfall API
+    logging.info(f"Reprints found: {reprints}")
 
-    return render_template('card_detail.html', card=card, card_set=card_set, mana_icons=mana_icons)
+    return render_template('card_detail.html', card=card, card_set=card_set, mana_icons=mana_icons, reprints=reprints)
 
 @card_bp.route("/advanced_search", methods=["GET", "POST"])
 def advanced_search():

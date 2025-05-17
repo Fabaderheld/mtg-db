@@ -224,6 +224,7 @@ def fetch_and_cache_cards(
         logging.error(f"Error in fetch_and_cache_cards: {e}")
         db.session.rollback()
         return []
+
 def fetch_and_cache_mana_icons():
     response = requests.get("https://api.scryfall.com/symbology")
     mana_icons = {}
@@ -246,3 +247,56 @@ def fetch_and_cache_mana_icons():
             # Store the relative path for use in templates
             mana_icons[symbol_code] = f"mana/{filename}"
     return mana_icons
+
+def card_to_dict(card):
+    """Convert a single card to dictionary"""
+    return {
+        # Basic attributes
+        'id': card.id,
+        'oracle_id': card.oracle_id,
+        'name': card.name,
+        'layout': card.layout,
+        'mana_cost': card.mana_cost,
+        'cmc': card.cmc,
+        'type_line': card.type_line,
+        'oracle_text': card.oracle_text,
+        'power': card.power,
+        'toughness': card.toughness,
+        'loyalty': card.loyalty,
+        'rarity': card.rarity,
+        'collector_number': card.collector_number,
+        'set_code': card.set_code,
+        'lang': card.lang,
+        'released_at': card.released_at,
+        'mana_costs': card.mana_costs,
+        'image_uri': card.image_uri,
+        'local_image_path': card.local_image_path,
+        'scryfall_uri': card.scryfall_uri,
+        'rulings_uri': card.rulings_uri,
+        'legalities': card.legalities,
+        'prints_search_uri': card.prints_search_uri,
+
+        # Relationships
+        'colors': [color.name for color in card.colors] if card.colors else [],
+        'types': [type.name for type in card.types] if card.types else [],
+
+        # Set relationship
+        'set': {
+            'id': card.set.id,
+            'code': card.set.code,
+            'name': card.set.name,
+            'icon_url': card.set.icon_url,
+            'local_icon_path': card.set.local_icon_path,
+            'released_at': card.set.released_at,
+            'set_type': card.set.set_type
+        } if card.set else None
+    }
+
+def fetch_reprints(card):
+    """Fetch reprints and convert them to dictionaries"""
+    if not card.oracle_id:
+        return []
+
+    reprints = fetch_and_cache_cards(search_string=card.name, unique_cards=False)
+    # Convert each reprint to a dictionary
+    return [card_to_dict(reprint) for reprint in reprints]
