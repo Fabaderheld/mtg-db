@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <!-- Left: Card image and details -->
+        <div class="col-md-5">
+            <div class="card mb-4 no-hover">
+                {% if card.local_image_path %}
+                <img src="/{{ card.local_image_path }}" class="card-img-top" alt="{{ card.name }}"
+                    style="height: 500px; width: auto; object-fit: contain;">
+                {% else %}
+                <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center"
+                    style="height: 300px;">
+                    No Image Available
+                </div>
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ card.type_line }}</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Mana Cost:</strong> {{
+                            card.mana_costs|mana_icons(mana_icons) }}</li>
+                        <li class="list-group-item"><strong>Power/Toughness:</strong> {{ card.power }}/{{ card.toughness
+                            }}</li>
+                        <li class="list-group-item"><strong>Rarity:</strong> {{ card.rarity|capitalize }}</li>
+                        <li class="list-group-item">
+                            <strong>Set:</strong>
+                            <a href="{{ url_for('cards.set_detail', set_code=card_set.code) }}">{{ card_set.name }}</a>
+                            <img src="{{ url_for('static', filename=card_set.local_icon_path) }}"
+                                alt="{{ card_set.name }}" style="max-height: 25px;">
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <!-- Right: Oracle text -->
+        <div class="col-md-7">
+            <div class="card h-100 no-hover">
+                <div class="card-body d-flex justify-content-center align-items-center">
+                    <p class="card-text text-center" style="white-space: pre-line;">{{
+                        card.oracle_text|oracle_icons(mana_icons) }}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 mt-4">
+            <div class="card mb-4 no-hover">
+                <div class="card-body">
+                    <h5 class="card-title">Reprints</h5>
+                    {% if reprints %}
+                    <ul class="list-group list-group-flush">
+                        {% for reprint in reprints %}
+                        {% if reprint.set.name != card_set.name %}
+                        <li class="list-group-item d-flex align-items-center">
+                            <a href="{{ url_for('cards.card_detail', card_id=reprint.id) }}"
+                                class="d-flex align-items-center text-decoration-none text-dark w-100"
+                                data-image="/{{ reprint.local_image_path }}">
+                                <span class="set-name flex-grow-1">{{ reprint.set.name }}</span>
+                                <img src="{{ url_for('static', filename=reprint.set.local_icon_path) }}"
+                                    alt="{{ reprint.set.name }} Icon" class="set-icon ms-2" />
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="mb-0">No reprints found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <a href="{{ url_for('cards.index') }}" class="btn btn-primary mt-3">Back to Search</a>
+    </div>
+    {% endblock %}
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Create the tooltip element (only once)
+        const tooltip = document.createElement('div');
+        tooltip.classList.add('card-preview-tooltip');
+        document.body.appendChild(tooltip);
+
+        // Add event listeners to the links
+        document.querySelectorAll('[data-image]').forEach(link => {
+            link.addEventListener('mouseover', function (event) {
+                const imageURL = this.getAttribute('data-image');
+                console.log('Image URL:', imageURL); // Debug log
+
+                if (imageURL) {
+                    const img = document.createElement('img');
+                    img.src = imageURL;
+
+                    // Clear previous content and add loading indicator
+                    tooltip.innerHTML = 'Loading...';
+
+                    // When image loads, update tooltip
+                    img.onload = function () {
+                        tooltip.innerHTML = '';
+                        tooltip.appendChild(img);
+                    };
+
+                    // If image fails to load
+                    img.onerror = function () {
+                        tooltip.innerHTML = 'Image failed to load';
+                    };
+
+                    tooltip.style.display = 'block';
+                    updateTooltipPosition(event);
+                }
+            });
+
+            link.addEventListener('mousemove', updateTooltipPosition);
+
+            link.addEventListener('mouseout', function () {
+                tooltip.style.display = 'none';
+            });
+        });
+
+        function updateTooltipPosition(event) {
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            // Calculate position
+            let left = event.pageX + 20; // 20px offset from cursor
+            let top = event.pageY + 20;
+
+            // Adjust if tooltip would go off-screen
+            if (left + tooltipRect.width > viewportWidth) {
+                left = event.pageX - tooltipRect.width - 20;
+            }
+            if (top + tooltipRect.height > viewportHeight) {
+                top = event.pageY - tooltipRect.height - 20;
+            }
+
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        }
+    });
+</script>

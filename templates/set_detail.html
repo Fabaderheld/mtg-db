@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mt-5"><img src="{{ url_for('static', filename=selected_set.local_icon_path) }}" alt="{{ selected_set.name }}"
+        style="max-height: 100px;"> {{ selected_set.name }}</h1>
+<p>Released: {{ selected_set.released_at }}</p>
+
+<div id="card-list" class="row">
+    {% include "partials/card_grid.html" %}
+</div>
+
+{% if not cards %}
+<p>No cards found in this set.</p>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/infinite_scroll.js') }}"></script>
+{% endblock %}

@@ -1,3 +1,5 @@
+## The following requirements were added by pip freeze:
+asarPy==1.0.1
 blinker==1.9.0
 certifi==2025.4.26
 charset-normalizer==3.4.2
@@ -6,6 +8,7 @@ Flask==3.1.0
 Flask-SQLAlchemy==3.1.1
 greenlet==3.2.1
 idna==3.10
+ijson==3.4.0
 itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.2

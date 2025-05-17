@@ -1,0 +1,13 @@
+static/images/*
+instance/*
+import/*
+.vscode/*
+app.log
+data/*
+__pycache__/*
+app/__pycache__/*
+app/routes/__pycache__/*
+app/utils/__pycache__/*
+static/mana/*
+static/sets_icons/*
+.DS_Store

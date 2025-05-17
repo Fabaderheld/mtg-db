@@ -1,0 +1,9 @@
+<h1>Saved MTG Cards</h1>
+<a href="/">Back to Search</a>
+{% for card in cards %}
+    <div>
+        <h3>{{ card.name }}</h3>
+        <img src="{{ card.image_url }}" alt="{{ card.name }}">
+        <p>{{ card.type_line }}</p>
+    </div>
+{% endfor %}
