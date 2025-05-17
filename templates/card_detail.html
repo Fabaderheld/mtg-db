@@ -50,11 +50,17 @@
                     {% if reprints %}
                     <ul class="list-group list-group-flush">
                         {% for reprint in reprints %}
+                        {% if reprint.set.name != card_set.name %}
                         <li class="list-group-item d-flex align-items-center">
-                            <span class="set-name flex-grow-1">{{ reprint.set.name }}</span>
-                            <img src="{{ url_for('static', filename=reprint.set.local_icon_path) }}"
-                                alt="{{ reprint.set.name }} Icon" class="set-icon ms-2" />
+                            <a href="{{ url_for('cards.card_detail', card_id=reprint.id) }}"
+                                class="d-flex align-items-center text-decoration-none text-dark w-100"
+                                data-image="/{{ reprint.local_image_path }}">
+                                <span class="set-name flex-grow-1">{{ reprint.set.name }}</span>
+                                <img src="{{ url_for('static', filename=reprint.set.local_icon_path) }}"
+                                    alt="{{ reprint.set.name }} Icon" class="set-icon ms-2" />
+                            </a>
                         </li>
+                        {% endif %}
                         {% endfor %}
                     </ul>
                     {% else %}
@@ -66,3 +72,69 @@
         <a href="{{ url_for('cards.index') }}" class="btn btn-primary mt-3">Back to Search</a>
     </div>
     {% endblock %}
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Create the tooltip element (only once)
+        const tooltip = document.createElement('div');
+        tooltip.classList.add('card-preview-tooltip');
+        document.body.appendChild(tooltip);
+
+        // Add event listeners to the links
+        document.querySelectorAll('[data-image]').forEach(link => {
+            link.addEventListener('mouseover', function (event) {
+                const imageURL = this.getAttribute('data-image');
+                console.log('Image URL:', imageURL); // Debug log
+
+                if (imageURL) {
+                    const img = document.createElement('img');
+                    img.src = imageURL;
+
+                    // Clear previous content and add loading indicator
+                    tooltip.innerHTML = 'Loading...';
+
+                    // When image loads, update tooltip
+                    img.onload = function () {
+                        tooltip.innerHTML = '';
+                        tooltip.appendChild(img);
+                    };
+
+                    // If image fails to load
+                    img.onerror = function () {
+                        tooltip.innerHTML = 'Image failed to load';
+                    };
+
+                    tooltip.style.display = 'block';
+                    updateTooltipPosition(event);
+                }
+            });
+
+            link.addEventListener('mousemove', updateTooltipPosition);
+
+            link.addEventListener('mouseout', function () {
+                tooltip.style.display = 'none';
+            });
+        });
+
+        function updateTooltipPosition(event) {
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            // Calculate position
+            let left = event.pageX + 20; // 20px offset from cursor
+            let top = event.pageY + 20;
+
+            // Adjust if tooltip would go off-screen
+            if (left + tooltipRect.width > viewportWidth) {
+                left = event.pageX - tooltipRect.width - 20;
+            }
+            if (top + tooltipRect.height > viewportHeight) {
+                top = event.pageY - tooltipRect.height - 20;
+            }
+
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        }
+    });
+</script>

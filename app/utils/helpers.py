@@ -297,6 +297,6 @@ def fetch_reprints(card):
     if not card.oracle_id:
         return []
 
-    reprints = fetch_and_cache_cards(search_string=card.name, unique_cards=False)
+    reprints = fetch_and_cache_cards(card_name=card.name, unique_cards=False)
     # Convert each reprint to a dictionary
     return [card_to_dict(reprint) for reprint in reprints]
