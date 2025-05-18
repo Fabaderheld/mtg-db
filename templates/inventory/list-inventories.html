@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>My Inventories</h2>
+    <a href="{{ url_for('inventory.create_inventory') }}" class="btn btn-primary mb-3">Create New Inventory</a>
+
+    {% if inventories %}
+    <ul class="list-group">
+        {% for inventory in inventories %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{{ url_for('inventory.view_inventory', inventory_id=inventory.id) }}">
+                {{ inventory.name }}
+            </a>
+            <div>
+                <a href="{{ url_for('inventory.edit_inventory', inventory_id=inventory.id) }}"
+                    class="btn btn-sm btn-secondary">Edit</a>
+                <form action="{{ url_for('inventory.delete_inventory', inventory_id=inventory.id) }}" method="POST"
+                    class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-danger"
+                        onclick="return confirm('Are you sure?')">Delete</button>
+                </form>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No inventories yet. Create one to get started!</p>
+    {% endif %}
+</div>
+{% endblock %}

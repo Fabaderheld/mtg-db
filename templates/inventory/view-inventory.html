@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>{{ inventory.name }}</h2>
+    <a href="{{ url_for('inventory.add_card', inventory_id=inventory.id) }}" class="btn btn-primary mb-3">Add Card</a>
+    <a href="{{ url_for('inventory.import_csv', inventory_id=inventory.id) }}" class="btn btn-success mb-3">Import
+        CSV</a>
+    <a href="{{ url_for('inventory.edit_inventory', inventory_id=inventory.id) }}" class="btn btn-secondary mb-3">Edit
+        Inventory</a>
+
+    {% if cards %}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Card Name</th>
+                    <th>Quantity</th>
+                    <th>Condition</th>
+                    <th>Foil</th>
+                    <th>Purchase Price</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for card in cards %}
+                <tr>
+                    <td>{{ card.card.name }}</td>
+                    <td>{{ card.quantity }}</td>
+                    <td>{{ card.condition }}</td>
+                    <td>{{ 'Yes' if card.is_foil else 'No' }}</td>
+                    <td>${{ card.purchase_price }}</td>
+                    <td>
+                        <a href="{{ url_for('inventory.edit_card', inventory_id=inventory.id, card_inventory_id=card.id) }}"
+                            class="btn btn-sm btn-secondary">Edit</a>
+                        <form
+                            action="{{ url_for('inventory.delete_card', inventory_id=inventory.id, card_inventory_id=card.id) }}"
+                            method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-danger"
+                                onclick="return confirm('Are you sure?')">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No cards in this inventory yet. Add one to get started!</p>
+    {% endif %}
+</div>
+{% endblock %}

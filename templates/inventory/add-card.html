@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Add Card to Inventory</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label for="card_name" class="form-label">Card Name</label>
+            <input type="text" class="form-control" id="card_name" name="card_name" required>
+        </div>
+        <div class="mb-3">
+            <label for="set_name" class="form-label">Set Name</label>
+            <input type="text" class="form-control" id="set_name" name="set_name" required>
+        </div>
+        <div class="mb-3">
+            <label for="quantity" class="form-label">Quantity</label>
+            <input type="number" class="form-control" id="quantity" name="quantity" value="1" min="1">
+        </div>
+        <div class="mb-3">
+            <label for="condition" class="form-label">Condition</label>
+            <select class="form-select" id="condition" name="condition">
+                <option value="NM">Near Mint</option>
+                <option value="LP">Lightly Played</option>
+                <option value="MP">Moderately Played</option>
+                <option value="HP">Heavily Played</option>
+                <option value="DMG">Damaged</option>
+            </select>
+        </div>
+        <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="is_foil" name="is_foil">
+            <label class="form-check-label" for="is_foil">Foil</label>
+        </div>
+        <div class="mb-3">
+            <label for="purchase_price" class="form-label">Purchase Price</label>
+            <input type="number" class="form-control" id="purchase_price" name="purchase_price" step="0.01"
+                value="0.00">
+        </div>
+        <button type="submit" class="btn btn-primary">Add Card</button>
+        <a href="{{ url_for('inventory.view_inventory', inventory_id=inventory.id) }}"
+            class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

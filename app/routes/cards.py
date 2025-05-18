@@ -1,9 +1,10 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, flash, url_for, redirect
 from ..models import Card, Set
 from ..utils.helpers import download_image,fetch_and_cache_cards, fetch_and_cache_mana_icons, fetch_reprints
-from ..models import db
+from ..models import db, Card, CardInventory
 import logging
-
+from io import StringIO
+import csv
 
 
 card_bp = Blueprint("cards", __name__)
@@ -132,6 +133,63 @@ def advanced_search():
         mana_icons=mana_icons,
         error=error
     )
+
+@card_bp.route('/inventory/import_csv', methods=['GET', 'POST'])
+def import_csv():
+    if request.method == 'POST':
+        file = request.files.get('csv_file')
+        if not file:
+            flash('No file uploaded', 'danger')
+            return redirect(request.url)
+        try:
+            stream = StringIO(file.stream.read().decode('utf-8'))
+            reader = csv.DictReader(stream)
+            imported = 0
+            for row in reader:
+                name = row['Name']
+                edition = row['Edition']
+                condition = row['Condition']
+                language = row['Language']
+                foil = row['Foil'].strip().lower() in ['yes', 'true', '1']
+                count = int(row['Count'])
+                purchase_price = float(row['Purchase Price']) if row['Purchase Price'] else 0.0
+                collector_number = row['Collector Number']
+
+                # Find the card by name, set, and collector number
+                card = Card.query.filter_by(
+                    name=name,
+                    collector_number=collector_number
+                ).join(Card.set).filter(Set.name == edition).first()
+
+                if card:
+                    inv = CardInventory.query.filter_by(
+                        card_id=card.id,
+                        condition=condition,
+                        is_foil=foil
+                    ).first()
+                    if inv:
+                        inv.quantity += count
+                        inv.purchase_price = purchase_price
+                    else:
+                        inv = CardInventory(
+                            card_id=card.id,
+                            quantity=count,
+                            condition=condition,
+                            is_foil=foil,
+                            purchase_price=purchase_price,
+                            # add other fields as needed
+                        )
+                        db.session.add(inv)
+                    imported += count
+                else:
+                    flash(f'Card not found: {name} ({edition}) #{collector_number}', 'warning')
+            db.session.commit()
+            flash(f'Imported {imported} cards.', 'success')
+            return redirect(url_for('cards.index'))
+        except Exception as e:
+            flash(f'Error: {e}', 'danger')
+            return redirect(request.url)
+    return render_template('inventory/import-csv.html')
 
 if __name__ == "__main__":
     with app.app_context():

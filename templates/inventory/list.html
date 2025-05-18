@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>My MTG Collection</h2>
+
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Card</th>
+                    <th>Set</th>
+                    <th>Quantity</th>
+                    <th>Condition</th>
+                    <th>Foil/Etched</th>
+                    <th>Location</th>
+                    <th>Purchase Price</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in inventory_items %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('card_details', card_id=item.card.id) }}">
+                            {{ item.card.name }}
+                        </a>
+                    </td>
+                    <td>{{ item.card.set.name }} ({{ item.card.set.code }})</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.condition }}</td>
+                    <td>
+                        {% if item.is_foil %}Foil{% endif %}
+                        {% if item.is_etched %}Etched{% endif %}
+                    </td>
+                    <td>{{ item.location }}</td>
+                    <td>${{ "%.2f"|format(item.purchase_price) }}</td>
+                    <td>
+                        <a href="{{ url_for('inventory.edit_inventory', inventory_id=item.id) }}"
+                            class="btn btn-sm btn-primary">Edit</a>
+                        <button class="btn btn-sm btn-danger"
+                            onclick="deleteInventoryItem({{ item.id }})">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function deleteInventoryItem(id) {
+        if (confirm('Are you sure you want to delete this inventory item?')) {
+            fetch(`/inventory/delete/${id}`, {
+                method: 'POST',
+            }).then(response => {
+                if (response.ok) {
+                    location.reload();
+                }
+            });
+        }
+    }
+</script>
+{% endblock %}

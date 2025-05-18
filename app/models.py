@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 
 db = SQLAlchemy()
 
@@ -79,3 +80,42 @@ card_sets = db.Table('card_sets',
     db.Column('card_id', db.String, db.ForeignKey('card.id'), primary_key=True),
     db.Column('set_code', db.String, db.ForeignKey('set.code'), primary_key=True)  # Reference 'set.code' instead of 'set.id'
 )
+
+
+class CardInventory(db.Model):
+    __tablename__ = 'card_inventory'
+
+    id = db.Column(db.Integer, primary_key=True)
+    inventory_id = db.Column(db.Integer, db.ForeignKey('inventory.id'), nullable=False)  # This is crucial
+    card_id = db.Column(db.String, db.ForeignKey('card.id'), nullable=False)
+    quantity = db.Column(db.Integer, default=1)
+    condition = db.Column(db.String(50))
+    is_foil = db.Column(db.Boolean, default=False)
+    is_etched = db.Column(db.Boolean, default=False)
+    purchase_price = db.Column(db.Float)
+    purchase_date = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text)
+    location = db.Column(db.String(100))  # e.g., "Binder 1", "Commander Deck: Ur-Dragon"
+
+    # Relationship with the Card model
+    card = db.relationship("Card", backref=db.backref("inventory_entries", lazy=True))
+
+    inventory = db.relationship('Inventory', back_populates='card_entries')
+
+    def __repr__(self):
+        return f'<CardInventory {self.card.name} x{self.quantity}>'
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    # Add password hash, email, etc. as needed
+
+    inventories = db.relationship('Inventory', back_populates='user')
+
+class Inventory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)  # e.g., "Trade Binder"
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    user = db.relationship('User', back_populates='inventories')
+    card_entries = db.relationship('CardInventory', back_populates='inventory')

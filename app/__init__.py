@@ -6,6 +6,7 @@ import logging
 import re
 import os
 from markupsafe import Markup
+import secrets
 
 def configure_logging(app):
     """Configure logging for the app."""
@@ -36,6 +37,7 @@ def create_app():
         static_folder='../static')
 
     # Load configuration from config.py
+    app.config['SECRET_KEY'] = secrets.token_hex(16)
     app.config.from_object("config.Config")
 
     # Configure logging

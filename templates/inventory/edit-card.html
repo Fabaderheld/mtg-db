@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h2>Edit Card in Inventory</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label for="quantity" class="form-label">Quantity</label>
+            <input type="number" class="form-control" id="quantity" name="quantity" value="{{ card_entry.quantity }}"
+                min="1">
+        </div>
+        <div class="mb-3">
+            <label for="condition" class="form-label">Condition</label>
+            <select class="form-select" id="condition" name="condition">
+                <option value="NM" {% if card_entry.condition=='NM' %}selected{% endif %}>Near Mint</option>
+                <option value="LP" {% if card_entry.condition=='LP' %}selected{% endif %}>Lightly Played</option>
+                <option value="MP" {% if card_entry.condition=='MP' %}selected{% endif %}>Moderately Played</option>
+                <option value="HP" {% if card_entry.condition=='HP' %}selected{% endif %}>Heavily Played</option>
+                <option value="DMG" {% if card_entry.condition=='DMG' %}selected{% endif %}>Damaged</option>
+            </select>
+        </div>
+        <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="is_foil" name="is_foil" {% if card_entry.is_foil
+                %}checked{% endif %}>
+            <label class="form-check-label" for="is_foil">Foil</label>
+        </div>
+        <div class="mb-3">
+            <label for="purchase_price" class="form-label">Purchase Price</label>
+            <input type="number" class="form-control" id="purchase_price" name="purchase_price" step="0.01"
+                value="{{ card_entry.purchase_price }}">
+        </div>
+        <button type="submit" class="btn btn-primary">Update</button>
+        <a href="{{ url_for('inventory.view_inventory', inventory_id=inventory.id) }}"
+            class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
