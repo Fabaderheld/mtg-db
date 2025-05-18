@@ -7,6 +7,7 @@ import re
 import os
 from markupsafe import Markup
 import secrets
+from flask_login import LoginManager
 
 def configure_logging(app):
     """Configure logging for the app."""
@@ -39,6 +40,10 @@ def create_app():
     # Load configuration from config.py
     app.config['SECRET_KEY'] = secrets.token_hex(16)
     app.config.from_object("config.Config")
+
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'
 
     # Configure logging
     configure_logging(app)
