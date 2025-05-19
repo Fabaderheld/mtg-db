@@ -2,7 +2,7 @@ from flask import Blueprint
 from sqlalchemy import and_
 
 from ..utils.common import (
-    Card,
+    MtgCard,
     CardInventory,
     Inventory,
     current_user,

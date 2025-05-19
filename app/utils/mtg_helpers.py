@@ -7,10 +7,8 @@ from flask import current_app
 
 from ..models import (
     MtgCard,
-    MtgColor,
+    Color,
     MtgSet,
-    mtg_card_colors,
-    mtg_card_sets,
     db
 )
 

@@ -12,12 +12,12 @@ from flask import (
     url_for
 )
 
-from ..models import Card, CardInventory, Set, db
+from ..models import MtgCard, CardInventory, MtgSet, db
 from ..utils.mtg_helpers import (
-    download_image,
-    fetch_and_cache_cards,
-    fetch_and_cache_mana_icons,
-    fetch_reprints
+    download_mtg_image,
+    fetch_and_cache_mtg_cards,
+    fetch_and_cache_mtg_mana_icons,
+    fetch_mtg_reprints
 )
 
 card_bp = Blueprint("cards", __name__)

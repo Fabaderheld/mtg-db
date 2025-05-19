@@ -11,4 +11,4 @@ from flask import (
 from flask_login import current_user, login_required
 
 # Database models
-from models import Card, CardInventory, Inventory, Set, db
+from ..models import MtgCard, CardInventory, Inventory, MtgSet, db
