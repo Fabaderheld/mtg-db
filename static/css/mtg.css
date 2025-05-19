@@ -1,0 +1,113 @@
+.mtg-theme {
+    background-color: #f0f0f0;
+    color: #000;
+}
+
+/* MTG-specific font */
+@font-face {
+    font-family: 'Beleren';
+    src: url('/static/fonts/Beleren2016-Bold.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+.mtg-theme {
+    font-family: 'Beleren', sans-serif !important;
+    background-color: #f8f5f0 !important;
+}
+
+/* MTG Colors */
+:root {
+    --mtg-white: #F5F5F5;
+    --mtg-blue: #0064FF;
+    --mtg-black: #000000;
+    --mtg-red: #FF3300;
+    --mtg-green: #008000;
+}
+
+/* MTG color classes */
+.mtg-white {
+    color: var(--mtg-white);
+}
+
+.mtg-blue {
+    color: var(--mtg-blue);
+}
+
+.mtg-black {
+    color: var(--mtg-black);
+}
+
+.mtg-red {
+    color: var(--mtg-red);
+}
+
+.mtg-green {
+    color: var(--mtg-green);
+}
+
+/* MTG-specific card styles */
+.mtg-theme .card {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+    background: #fff;
+}
+
+.mtg-theme .card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+
+.mtg-theme .card-img-top {
+    height: 550px;
+    background: #f8f5f0;
+    border-radius: 8px 8px 0 0;
+}
+
+/* MTG color checkboxes */
+.mtg-theme .color-checkbox .color-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid #aaa;
+}
+
+.mtg-theme .color-checkbox .color-dot.white {
+    background: var(--mtg-white);
+}
+
+.mtg-theme .color-checkbox .color-dot.blue {
+    background: var(--mtg-blue);
+}
+
+.mtg-theme .color-checkbox .color-dot.black {
+    background: var(--mtg-black);
+}
+
+.mtg-theme .color-checkbox .color-dot.red {
+    background: var(--mtg-red);
+}
+
+.mtg-theme .color-checkbox .color-dot.green {
+    background: var(--mtg-green);
+}
+
+/* MTG-specific form styles */
+.mtg-theme .form-control,
+.mtg-theme .form-select {
+    border: 1px solid #d1cfc7;
+    background: #f8f5f0;
+    font-family: 'Beleren', sans-serif;
+}
+
+/* MTG-specific links */
+.mtg-theme a,
+.mtg-theme a:visited {
+    color: #000 !important;
+    text-decoration: underline;
+}
+
+.mtg-theme a:hover,
+.mtg-theme a:focus {
+    color: #444 !important;
+}

@@ -1,0 +1,54 @@
+.lorcana-theme {
+    background-color: #222;
+    color: #fff;
+}
+
+/* Lorcana theme */
+.lorcana-theme {
+    font-family: 'MouseMemoirs-Regular', sans-serif !important;
+    background-color: #1a1a1a !important;
+    color: #fff;
+}
+
+/* Lorcana ink colors */
+:root {
+    --lorcana-amber: #FFB300;
+    --lorcana-amethyst: #9C27B0;
+    --lorcana-emerald: #4CAF50;
+    --lorcana-ruby: #F44336;
+    --lorcana-sapphire: #2196F3;
+    --lorcana-steel: #9E9E9E;
+}
+
+/* Lorcana-specific card styles */
+.lorcana-theme .card {
+    border-radius: 15px;
+    background: #2d2d2d;
+    color: #fff;
+    border: 1px solid #3d3d3d;
+}
+
+.lorcana-theme .card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* Lorcana-specific form styles */
+.lorcana-theme .form-control,
+.lorcana-theme .form-select {
+    background: #2d2d2d;
+    border: 1px solid #3d3d3d;
+    color: #fff;
+}
+
+/* Lorcana-specific links */
+.lorcana-theme a,
+.lorcana-theme a:visited {
+    color: #fff !important;
+    text-decoration: underline;
+}
+
+.lorcana-theme a:hover,
+.lorcana-theme a:focus {
+    color: #ccc !important;
+}

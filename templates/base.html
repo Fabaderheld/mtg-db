@@ -8,8 +8,12 @@
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.0/dist/sandstone/bootstrap.min.css">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/spinner.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='common.css') }}">
+    {% if game_mode == 'mtg' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='mtg.css') }}">
+    {% else %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='lorcana.css') }}">
+    {% endif %}
 </head>
 
 
@@ -53,6 +57,12 @@
                         </div>
                     </li>
                     </li>
+                    <label class="switch">
+                        <span class="game-label">MTG</span>
+                        <input type="checkbox" id="gameToggle">
+                        <span class="slider round"></span>
+                        <span class="game-label">Lorcana</span>
+                    </label>
                 </ul>
                 <form method="post" class="d-flex">
                     <input class="form-control me-sm-2" type="search" name="query" placeholder="e.g. goblin" required>
