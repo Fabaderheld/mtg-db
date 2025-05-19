@@ -1,7 +1,19 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
-from flask_login import login_required, current_user
-from ..models import db, Inventory, CardInventory, Card
+from flask import Blueprint
 from sqlalchemy import and_
+
+from ..utils.common import (
+    Card,
+    CardInventory,
+    Inventory,
+    current_user,
+    db,
+    flash,
+    login_required,
+    redirect,
+    render_template,
+    request,
+    url_for
+)
 
 inventory_bp = Blueprint('inventory', __name__, url_prefix='/inventory')
 

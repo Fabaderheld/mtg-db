@@ -1,6 +1,6 @@
 import csv
-from ..models import CardInventory, db
-from ..utils.helpers import download_image,fetch_and_cache_cards
+from ..utils.common import CardInventory, db
+from ..utils.helpers import download_image, fetch_and_cache_cards
 
 def add_card_to_inventory(card_id, set_code, quantity, foil, condition, language):
     card_inventory = CardInventory(

@@ -1,13 +1,14 @@
-from flask import Flask,current_app
+import logging
+import os
+import re
+import secrets
+from flask import Flask, current_app
+from flask_login import LoginManager
+from markupsafe import Markup
+
 from .models import db
 from .routes import register_routes
 from .utils.helpers import fetch_and_cache_sets
-import logging
-import re
-import os
-from markupsafe import Markup
-import secrets
-from flask_login import LoginManager
 
 def configure_logging(app):
     """Configure logging for the app."""

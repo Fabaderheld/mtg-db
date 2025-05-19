@@ -1,11 +1,19 @@
-import os
-import requests
-import time
 import json
 import logging
+import os
+import time
 
-from ..models import db, Card, Set, Color, card_colors, card_sets
+import requests
 from flask import current_app
+
+from ..models import (
+    Card,
+    Color,
+    Set,
+    card_colors,
+    card_sets,
+    db
+)
 
 def fetch_and_cache_sets():
     try:
@@ -34,6 +42,7 @@ def fetch_and_cache_sets():
                                     f.write(img_response.content)
                                 # Store the relative path for HTML rendering
                                 local_icon_path = f"sets_icons/{filename}"
+                                time.sleep(0.05)  # 50ms delay
                         except Exception as img_e:
                             logging.error(f"Failed to download icon for set {set_data.get('code')}: {img_e}")
 
