@@ -3,8 +3,8 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
-class Card(db.Model):
-    __tablename__ = 'card'
+class MtgCard(db.Model):
+    __tablename__ = 'mtg_card'
 
     id = db.Column(db.String, primary_key=True)  # Scryfall ID
     oracle_id = db.Column(db.String, index=True)  # Scryfall Oracle ID
@@ -19,7 +19,7 @@ class Card(db.Model):
     loyalty = db.Column(db.String)
     rarity = db.Column(db.String)
     collector_number = db.Column(db.String)
-    set_code = db.Column(db.String, db.ForeignKey('set.code'))
+    set_code = db.Column(db.String, db.ForeignKey('mtg_set.code'))
     lang = db.Column(db.String)
     released_at = db.Column(db.String)
     mana_costs = db.Column(db.String)
@@ -31,12 +31,12 @@ class Card(db.Model):
     prints_search_uri = db.Column(db.String)
 
     # Relationships
-    set = db.relationship("Set", back_populates="cards")
-    colors = db.relationship("Color", secondary="card_colors", back_populates="cards")
-    types = db.relationship("Type", secondary="card_types", back_populates="cards")
+    set = db.relationship("MtgSet", back_populates="cards")
+    colors = db.relationship("MtgColor", secondary="mtg_card_colors", back_populates="cards")
+    types = db.relationship("MtgType", secondary="mtg_card_types", back_populates="cards")
 
-class Set(db.Model):
-    __tablename__ = 'set'
+class MtgSet(db.Model):
+    __tablename__ = 'mtg_set'
 
     id = db.Column(db.String, primary_key=True)
     code = db.Column(db.String)
@@ -46,7 +46,7 @@ class Set(db.Model):
     released_at = db.Column(db.String)
     set_type = db.Column(db.String)
 
-    cards = db.relationship("Card", back_populates="set")
+    cards = db.relationship("MtgCard", back_populates="set")
 
 class Color(db.Model):
     __tablename__ = 'color'
@@ -86,8 +86,9 @@ class CardInventory(db.Model):
     __tablename__ = 'card_inventory'
 
     id = db.Column(db.Integer, primary_key=True)
+    game = db.Column(db.String(20), nullable=False)  # 'mtg' or 'lorcana'
     inventory_id = db.Column(db.Integer, db.ForeignKey('inventory.id'), nullable=False)  # This is crucial
-    card_id = db.Column(db.String, db.ForeignKey('card.id'), nullable=False)
+    card_id = db.Column(db.String, nullable=False)
     quantity = db.Column(db.Integer, default=1)
     condition = db.Column(db.String(50))
     is_foil = db.Column(db.Boolean, default=False)
@@ -119,3 +120,82 @@ class Inventory(db.Model):
 
     user = db.relationship('User', back_populates='inventories')
     card_entries = db.relationship('CardInventory', back_populates='inventory')
+
+class LorcanaCard(db.Model):
+    __tablename__ = 'lorcana_card'
+
+    id = db.Column(db.String, primary_key=True)
+    name = db.Column(db.String, index=True)
+    version = db.Column(db.String)
+    layout = db.Column(db.String)
+    released_at = db.Column(db.String)
+    image_uris_small = db.Column(db.String)  # Flatten image_uris
+    image_uris_normal = db.Column(db.String)
+    image_uris_large = db.Column(db.String)
+    cost = db.Column(db.Integer)
+    inkwell = db.Column(db.Boolean)
+    ink = db.Column(db.String)
+    text = db.Column(db.Text)
+    move_cost = db.Column(db.Integer)
+    strength = db.Column(db.Integer)
+    willpower = db.Column(db.Integer)
+    lore = db.Column(db.Integer)
+    rarity = db.Column(db.String)
+    collector_number = db.Column(db.String)
+    lang = db.Column(db.String)
+    flavor_text = db.Column(db.Text)
+    tcgplayer_id = db.Column(db.Integer)
+    legalities_core = db.Column(db.String)  # Flatten legalities
+    set_id = db.Column(db.String, db.ForeignKey('lorcana_set.id')) # Use a separate set table
+    usd = db.Column(db.String)
+    usd_foil = db.Column(db.String)
+
+    # Relationships
+    set = db.relationship("LorcanaSet", back_populates="cards")
+    types = db.relationship("LorcanaType", secondary="lorcana_card_types", back_populates="cards")
+    classifications = db.relationship("LorcanaClassification", secondary="lorcana_card_classifications", back_populates="cards")
+    illustrators = db.relationship("LorcanaIllustrator", secondary="lorcana_card_illustrators", back_populates="cards")
+
+class LorcanaSet(db.Model):
+    __tablename__ = 'lorcana_set'
+    id = db.Column(db.String, primary_key=True)
+    code = db.Column(db.String)
+    name = db.Column(db.String)
+
+    cards = db.relationship("LorcanaCard", back_populates="set")
+
+class LorcanaType(db.Model):
+    __tablename__ = 'lorcana_type'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, unique=True, nullable=False)
+
+    cards = db.relationship("LorcanaCard", secondary="lorcana_card_types", back_populates="types")
+
+class LorcanaClassification(db.Model):
+    __tablename__ = 'lorcana_classification'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, unique=True, nullable=False)
+
+    cards = db.relationship("LorcanaCard", secondary="lorcana_card_classifications", back_populates="classifications")
+
+class LorcanaIllustrator(db.Model):
+    __tablename__ = 'lorcana_illustrator'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, unique=True, nullable=False)
+
+    cards = db.relationship("LorcanaCard", secondary="lorcana_card_illustrators", back_populates="illustrators")
+
+lorcana_card_types = db.Table('lorcana_card_types',
+    db.Column('lorcana_card_id', db.String, db.ForeignKey('lorcana_card.id'), primary_key=True),
+    db.Column('lorcana_type_id', db.Integer, db.ForeignKey('lorcana_type.id'), primary_key=True)
+)
+
+lorcana_card_classifications = db.Table('lorcana_card_classifications',
+    db.Column('lorcana_card_id', db.String, db.ForeignKey('lorcana_card.id'), primary_key=True),
+    db.Column('lorcana_classification_id', db.Integer, db.ForeignKey('lorcana_classification.id'), primary_key=True)
+)
+
+lorcana_card_illustrators = db.Table('lorcana_card_illustrators',
+    db.Column('lorcana_card_id', db.String, db.ForeignKey('lorcana_card.id'), primary_key=True),
+    db.Column('lorcana_illustrator_id', db.Integer, db.ForeignKey('lorcana_illustrator.id'), primary_key=True)
+)
