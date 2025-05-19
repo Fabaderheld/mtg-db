@@ -11,3 +11,5 @@ app/utils/__pycache__/*
 static/mana/*
 static/sets_icons/*
 .DS_Store
+project_contents.md
+*.zip
