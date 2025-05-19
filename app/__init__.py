@@ -8,7 +8,7 @@ from markupsafe import Markup
 
 from .models import db
 from .routes import register_routes
-from .utils.helpers import fetch_and_cache_sets
+from .utils.mtg_helpers import fetch_and_cache_sets
 
 def configure_logging(app):
     """Configure logging for the app."""

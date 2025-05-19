@@ -13,7 +13,7 @@ from flask import (
 )
 
 from ..models import Card, CardInventory, Set, db
-from ..utils.helpers import (
+from ..utils.mtg_helpers import (
     download_image,
     fetch_and_cache_cards,
     fetch_and_cache_mana_icons,
