@@ -42,10 +42,15 @@ def create_app():
     app.config['SECRET_KEY'] = secrets.token_hex(16)
     app.config.from_object("config.Config")
 
-    @app.route('/')
-    def home():
-        game_mode = session.get('game_mode', 'mtg')  # Default to 'mtg' if not set
-        return render_template('index.html', game_mode=game_mode)
+    # @app.route('/')
+    # def home():
+    #     game_mode = session.get('game_mode', 'mtg')  # Default to 'mtg' if not set
+    #     print(f"Rendering home with game_mode: {game_mode}")  # Debug print
+    #     return render_template('index.html', game_mode=game_mode)
+
+    @app.context_processor
+    def inject_game_mode():
+        return {'game_mode': session.get('game_mode', 'mtg')}
 
     # Add the new route here
     @app.route('/switch_game_mode', methods=['POST'])
@@ -72,6 +77,9 @@ def create_app():
     def before_request():
         if 'game_mode' not in session:
             session['game_mode'] = 'mtg'
+            print("Setting default game_mode to mtg")  # Debug print
+        else:
+            print(f"Game mode already set to: {session['game_mode']}")  # Debug print
 
     login_manager = LoginManager()
     login_manager.init_app(app)
@@ -81,8 +89,6 @@ def create_app():
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
-
-
 
     # Configure logging
     configure_logging(app)

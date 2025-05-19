@@ -20,7 +20,7 @@ def fetch_and_cache_mtg_sets():
             data = response.json()
             sets = data.get("data", [])
             for set_data in sets:
-                logging.debug(f"Looking up set: {set_data['name']}")
+                #logging.debug(f"Looking up set: {set_data['name']}")
                 existing_set = MtgSet.query.get(set_data.get("id"))
                 if not existing_set:
                     logging.debug(f"Processing set: {set_data['name']}")
