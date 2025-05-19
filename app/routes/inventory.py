@@ -112,7 +112,7 @@ def add_card(inventory_id):
         purchase_price = float(request.form.get('purchase_price', 0))
 
         # Find the card in the database
-        card = Card.query.join(Card.set).filter(
+        card = MtgCard.query.join(Card.set).filter(
             and_(
                 Card.name == card_name,
                 Set.name == set_name
@@ -236,7 +236,7 @@ def import_csv(inventory_id):
                     is_foil = row['Foil'].lower() == 'true'
                     purchase_price = float(row['Purchase Price']) if row['Purchase Price'] else 0
 
-                    card = Card.query.join(Card.set).filter(
+                    card = MtgCard.query.join(Card.set).filter(
                         and_(
                             Card.name == card_name,
                             Set.name == set_name

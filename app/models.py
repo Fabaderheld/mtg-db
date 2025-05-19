@@ -32,8 +32,8 @@ class MtgCard(db.Model):
 
     # Relationships
     set = db.relationship("MtgSet", back_populates="cards")
-    colors = db.relationship("MtgColor", secondary="mtg_card_colors", back_populates="cards")
-    types = db.relationship("MtgType", secondary="mtg_card_types", back_populates="cards")
+    colors = db.relationship("Color", secondary="card_colors", back_populates="cards")
+    types = db.relationship("Type", secondary="card_types", back_populates="cards")
 
 class MtgSet(db.Model):
     __tablename__ = 'mtg_set'
@@ -50,76 +50,85 @@ class MtgSet(db.Model):
 
 class Color(db.Model):
     __tablename__ = 'color'
-
-    id = db.Column(db.String, primary_key=True)  # e.g. 'color_W', 'color_U'
-    name = db.Column(db.String)  # e.g. 'W'
-
-    cards = db.relationship("Card", secondary="card_colors", back_populates="colors")
+    id = db.Column(db.String, primary_key=True)
+    name = db.Column(db.String)
+    cards = db.relationship("MtgCard", secondary="card_colors", back_populates="colors")
 
 class Type(db.Model):
     __tablename__ = 'type'
-
     id = db.Column(db.String, primary_key=True)
     name = db.Column(db.String)
-
-    cards = db.relationship("Card", secondary="card_types", back_populates="types")
+    cards = db.relationship("MtgCard", secondary="card_types", back_populates="types")
 
 # Association tables for many-to-many relations
 card_colors = db.Table('card_colors',
-    db.Column('card_id', db.String, db.ForeignKey('card.id'), primary_key=True),
+    db.Column('card_id', db.String, db.ForeignKey('mtg_card.id'), primary_key=True),
     db.Column('color_id', db.String, db.ForeignKey('color.id'), primary_key=True)
 )
 
 card_types = db.Table('card_types',
-    db.Column('card_id', db.String, db.ForeignKey('card.id'), primary_key=True),
+    db.Column('card_id', db.String, db.ForeignKey('mtg_card.id'), primary_key=True),
     db.Column('type_id', db.String, db.ForeignKey('type.id'), primary_key=True)
 )
 
 # Define the association table for the many-to-many relationship between Card and Set
 card_sets = db.Table('card_sets',
-    db.Column('card_id', db.String, db.ForeignKey('card.id'), primary_key=True),
-    db.Column('set_code', db.String, db.ForeignKey('set.code'), primary_key=True)  # Reference 'set.code' instead of 'set.id'
+    db.Column('card_id', db.String, db.ForeignKey('mtg_card.id'), primary_key=True),
+    db.Column('set_code', db.String, db.ForeignKey('mtg_set.code'), primary_key=True)
 )
 
+# class CardInventory(db.Model):
+#     __tablename__ = 'card_inventory'
 
-class CardInventory(db.Model):
-    __tablename__ = 'card_inventory'
+#     id = db.Column(db.Integer, primary_key=True)
+#     game = db.Column(db.String(20), nullable=False)  # 'mtg' or 'lorcana'
+#     inventory_id = db.Column(db.Integer, db.ForeignKey('inventory.id'), nullable=False)  # This is crucial
+#     card_id = db.Column(db.String, nullable=False)
+#     quantity = db.Column(db.Integer, default=1)
+#     condition = db.Column(db.String(50))
+#     is_foil = db.Column(db.Boolean, default=False)
+#     is_etched = db.Column(db.Boolean, default=False)
+#     purchase_price = db.Column(db.Float)
+#     purchase_date = db.Column(db.DateTime, default=datetime.utcnow)
+#     notes = db.Column(db.Text)
+#     location = db.Column(db.String(100))  # e.g., "Binder 1", "Commander Deck: Ur-Dragon"
 
-    id = db.Column(db.Integer, primary_key=True)
-    game = db.Column(db.String(20), nullable=False)  # 'mtg' or 'lorcana'
-    inventory_id = db.Column(db.Integer, db.ForeignKey('inventory.id'), nullable=False)  # This is crucial
-    card_id = db.Column(db.String, nullable=False)
-    quantity = db.Column(db.Integer, default=1)
-    condition = db.Column(db.String(50))
-    is_foil = db.Column(db.Boolean, default=False)
-    is_etched = db.Column(db.Boolean, default=False)
-    purchase_price = db.Column(db.Float)
-    purchase_date = db.Column(db.DateTime, default=datetime.utcnow)
-    notes = db.Column(db.Text)
-    location = db.Column(db.String(100))  # e.g., "Binder 1", "Commander Deck: Ur-Dragon"
+#     # Relationship with the Card model
+#     mtg_card = db.relationship(
+#         "MtgCard",
+#         primaryjoin="and_(CardInventory.card_id==MtgCard.id, CardInventory.game=='mtg')",
+#         foreign_keys=[card_id],
+#         backref=db.backref("inventory_entries", lazy=True, overlaps="lorcana_card,inventory_entries")
+#     )
 
-    # Relationship with the Card model
-    card = db.relationship("Card", backref=db.backref("inventory_entries", lazy=True))
+#     lorcana_card = db.relationship(
+#         "LorcanaCard",
+#         primaryjoin="and_(CardInventory.card_id==LorcanaCard.id, CardInventory.game=='lorcana')",
+#         foreign_keys=[card_id],
+#         back_populates="inventory_entries",
+#         overlaps="mtg_card,inventory_entries"
+#     )
 
-    inventory = db.relationship('Inventory', back_populates='card_entries')
+#     inventory = db.relationship('Inventory', back_populates='card_entries')
 
-    def __repr__(self):
-        return f'<CardInventory {self.card.name} x{self.quantity}>'
+#     def __repr__(self):
+#         card_name = self.mtg_card.name if self.game == 'mtg' else self.lorcana_card.name
+#         return f'<CardInventory {card_name} x{self.quantity}>'
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     # Add password hash, email, etc. as needed
 
-    inventories = db.relationship('Inventory', back_populates='user')
+    #inventories = db.relationship('Inventory', back_populates='user')
 
-class Inventory(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)  # e.g., "Trade Binder"
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+# class Inventory(db.Model):
+#     id = db.Column(db.Integer, primary_key=True)
+#     name = db.Column(db.String(100), nullable=False)  # e.g., "Trade Binder"
+#     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-    user = db.relationship('User', back_populates='inventories')
-    card_entries = db.relationship('CardInventory', back_populates='inventory')
+#     user = db.relationship('User', back_populates='inventories')
+#     card_entries = db.relationship('CardInventory', back_populates='inventory')
 
 class LorcanaCard(db.Model):
     __tablename__ = 'lorcana_card'
@@ -155,6 +164,7 @@ class LorcanaCard(db.Model):
     types = db.relationship("LorcanaType", secondary="lorcana_card_types", back_populates="cards")
     classifications = db.relationship("LorcanaClassification", secondary="lorcana_card_classifications", back_populates="cards")
     illustrators = db.relationship("LorcanaIllustrator", secondary="lorcana_card_illustrators", back_populates="cards")
+    #inventory_entries = db.relationship("CardInventory",back_populates="lorcana_card",overlaps="mtg_card")
 
 class LorcanaSet(db.Model):
     __tablename__ = 'lorcana_set'

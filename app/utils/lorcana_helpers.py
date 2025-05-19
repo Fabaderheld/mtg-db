@@ -21,7 +21,7 @@ def fetch_and_cache_lorcana_sets():
         if response.status_code == 200:
             data = response.json()
             for set_data in data:
-                existing_set = LorcanaSet.query.get(set_data.get("id"))
+                existing_set = LorcanaMtgSet.query.get(set_data.get("id"))
                 if not existing_set:
                     logging.debug(f"Processing set: {set_data['name']}")
 

@@ -13,3 +13,7 @@ static/sets_icons/*
 .DS_Store
 project_contents.md
 *.zip
+static/mtg_images/*
+static/mtg_mana/*
+static/mtg_sets_icons/*
+__pycache__/mtg_db.cpython-313.pyc

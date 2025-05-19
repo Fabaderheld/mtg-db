@@ -12,7 +12,7 @@ from flask import (
     url_for
 )
 
-from ..models import MtgCard, CardInventory, MtgSet, db
+from ..models import MtgCard, MtgSet, db #, CardInventory
 from ..utils.mtg_helpers import (
     download_mtg_image,
     fetch_and_cache_mtg_cards,
@@ -36,7 +36,7 @@ def index():
         query = request.args.get("query")
 
     if query:
-        cards = fetch_and_cache_cards(search_string=query, page=page, per_page=per_page)
+        cards = fetch_and_cache_mtg_cards(search_string=query, page=page, per_page=per_page)
 
     # AJAX: return only the cards grid partial
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -54,24 +54,24 @@ def sets():
 
     if sort == 'name':
         if direction == 'asc':
-            sets = Set.query.order_by(Set.name.asc()).all()
+            sets = MtgSet.query.order_by(MtgSet.name.asc()).all()
         else:
-            sets = Set.query.order_by(Set.name.desc()).all()
+            sets = MtgSet.query.order_by(MtgSet.name.desc()).all()
     elif sort == 'date':
         if direction == 'asc':
-            sets = Set.query.order_by(Set.released_at.asc()).all()
+            sets = MtgSet.query.order_by(MtgSet.released_at.asc()).all()
         else:
-            sets = Set.query.order_by(Set.released_at.desc()).all()
+            sets = MtgSet.query.order_by(MtgSet.released_at.desc()).all()
     else:
-        sets = Set.query.all()
+        sets = MtgSet.query.all()
 
     return render_template("sets.html", sets=sets)
 
 @card_bp.route('/sets/<set_code>')
 def set_detail(set_code):
     page = request.args.get('page', 1, type=int)
-    selected_set = Set.query.filter_by(code=set_code).first_or_404()
-    cards = fetch_and_cache_cards(
+    selected_set = MtgSet.query.filter_by(code=set_code).first_or_404()
+    cards = fetch_and_cache_mtg_cards(
         selected_sets=[set_code],
         page=page,
         per_page=20
@@ -93,13 +93,13 @@ def set_detail(set_code):
 
 @card_bp.route('/card/<card_id>')
 def card_detail(card_id):
-    card = Card.query.get(card_id)
+    card = MtgCard.query.get(card_id)
     if not card:
         return "Card not found", 404
 
     card_set = card.set if card.set else None
-    mana_icons = fetch_and_cache_mana_icons()  # Fetch mana icons from Scryfall API
-    reprints = fetch_reprints(card)  # Fetch reprints from Scryfall API
+    mana_icons = fetch_and_cache_mtg_mana_icons()  # Fetch mana icons from Scryfall API
+    reprints = fetch_mtg_reprints(card)  # Fetch reprints from Scryfall API
     logging.info(f"Reprints found: {reprints}")
 
     return render_template('card_detail.html', card=card, card_set=card_set, mana_icons=mana_icons, reprints=reprints)
@@ -107,10 +107,10 @@ def card_detail(card_id):
 @card_bp.route("/advanced_search", methods=["GET", "POST"])
 def advanced_search():
     # Now this runs inside the app/request context
-    sets = Set.query.all()
+    sets = MtgSet.query.all()
     card_types = ["Creature", "Enchantment", "Instant", "Sorcery", "Artifact", "Land", "Planeswalker"]
     colors = ["White", "Blue", "Black", "Red", "Green"]
-    mana_icons = fetch_and_cache_mana_icons()  # Fetch mana icons from Scryfall API
+    mana_icons = fetch_and_cache_mtg_mana_icons()  # Fetch mana icons from Scryfall API
 
 
     error = None
@@ -125,7 +125,7 @@ def advanced_search():
         unique_oracle_id = request.form.get("unique_oracle_id") == "1"
 
         try:
-            cards = fetch_and_cache_cards(
+            cards = fetch_and_cache_mtg_cards(
                 card_name=card_name,
                 card_type=card_type,
                 selected_colors=selected_colors,
@@ -147,72 +147,59 @@ def advanced_search():
         error=error
     )
 
-@card_bp.route('/inventory/import_csv', methods=['GET', 'POST'])
-def import_csv():
-    if request.method == 'POST':
-        file = request.files.get('csv_file')
-        if not file:
-            flash('No file uploaded', 'danger')
-            return redirect(request.url)
-        try:
-            stream = StringIO(file.stream.read().decode('utf-8'))
-            reader = csv.DictReader(stream)
-            imported = 0
-            for row in reader:
-                name = row['Name']
-                edition = row['Edition']
-                condition = row['Condition']
-                language = row['Language']
-                foil = row['Foil'].strip().lower() in ['yes', 'true', '1']
-                count = int(row['Count'])
-                purchase_price = float(row['Purchase Price']) if row['Purchase Price'] else 0.0
-                collector_number = row['Collector Number']
+# @card_bp.route('/inventory/import_csv', methods=['GET', 'POST'])
+# def import_csv():
+#     if request.method == 'POST':
+#         file = request.files.get('csv_file')
+#         if not file:
+#             flash('No file uploaded', 'danger')
+#             return redirect(request.url)
+#         try:
+#             stream = StringIO(file.stream.read().decode('utf-8'))
+#             reader = csv.DictReader(stream)
+#             imported = 0
+#             for row in reader:
+#                 name = row['Name']
+#                 edition = row['Edition']
+#                 condition = row['Condition']
+#                 language = row['Language']
+#                 foil = row['Foil'].strip().lower() in ['yes', 'true', '1']
+#                 count = int(row['Count'])
+#                 purchase_price = float(row['Purchase Price']) if row['Purchase Price'] else 0.0
+#                 collector_number = row['Collector Number']
 
-                # Find the card by name, set, and collector number
-                card = Card.query.filter_by(
-                    name=name,
-                    collector_number=collector_number
-                ).join(Card.set).filter(Set.name == edition).first()
+#                 # Find the card by name, set, and collector number
+#                 card = MtgCard.query.filter_by(
+#                     name=name,
+#                     collector_number=collector_number
+#                 ).join(Card.set).filter(MtgSet.name == edition).first()
 
-                if card:
-                    inv = CardInventory.query.filter_by(
-                        card_id=card.id,
-                        condition=condition,
-                        is_foil=foil
-                    ).first()
-                    if inv:
-                        inv.quantity += count
-                        inv.purchase_price = purchase_price
-                    else:
-                        inv = CardInventory(
-                            card_id=card.id,
-                            quantity=count,
-                            condition=condition,
-                            is_foil=foil,
-                            purchase_price=purchase_price,
-                            # add other fields as needed
-                        )
-                        db.session.add(inv)
-                    imported += count
-                else:
-                    flash(f'Card not found: {name} ({edition}) #{collector_number}', 'warning')
-            db.session.commit()
-            flash(f'Imported {imported} cards.', 'success')
-            return redirect(url_for('cards.index'))
-        except Exception as e:
-            flash(f'Error: {e}', 'danger')
-            return redirect(request.url)
-    return render_template('inventory/import-csv.html')
-
-if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-        fetch_and_cache_sets()
-
-        # Check if the import file exists at startup
-        import_file_path = "import/import.json"  # Update this path to the location of your bulk data file
-        if os.path.exists(import_file_path):
-            logging.info("Found import.json file, staring import")
-            # import_bulk_data_from_file(import_file_path)
-
-    app.run(debug=True)
+#                 if card:
+#                     inv = CardInventory.query.filter_by(
+#                         card_id=card.id,
+#                         condition=condition,
+#                         is_foil=foil
+#                     ).first()
+#                     if inv:
+#                         inv.quantity += count
+#                         inv.purchase_price = purchase_price
+#                     else:
+#                         inv = CardInventory(
+#                             card_id=card.id,
+#                             quantity=count,
+#                             condition=condition,
+#                             is_foil=foil,
+#                             purchase_price=purchase_price,
+#                             # add other fields as needed
+#                         )
+#                         db.session.add(inv)
+#                     imported += count
+#                 else:
+#                     flash(f'Card not found: {name} ({edition}) #{collector_number}', 'warning')
+#             db.session.commit()
+#             flash(f'Imported {imported} cards.', 'success')
+#             return redirect(url_for('cards.index'))
+#         except Exception as e:
+#             flash(f'Error: {e}', 'danger')
+#             return redirect(request.url)
+#     return render_template('inventory/import-csv.html')

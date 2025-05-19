@@ -2,13 +2,13 @@ import logging
 import os
 import re
 import secrets
-from flask import Flask, current_app
+from flask import Flask, render_template, jsonify, request, session, current_app
 from flask_login import LoginManager
 from markupsafe import Markup
 
-from .models import db
+from .models import db,User
 from .routes import register_routes
-from .utils.mtg_helpers import fetch_and_cache_sets
+from .utils.mtg_helpers import fetch_and_cache_mtg_sets
 
 def configure_logging(app):
     """Configure logging for the app."""
@@ -42,9 +42,47 @@ def create_app():
     app.config['SECRET_KEY'] = secrets.token_hex(16)
     app.config.from_object("config.Config")
 
+    @app.route('/')
+    def home():
+        game_mode = session.get('game_mode', 'mtg')  # Default to 'mtg' if not set
+        return render_template('index.html', game_mode=game_mode)
+
+    # Add the new route here
+    @app.route('/switch_game_mode', methods=['POST'])
+    def switch_game_mode():
+        try:
+            data = request.get_json()
+            if data is None:
+                return jsonify({'success': False, 'error': 'No JSON data received'})
+
+            mode = data.get('mode')
+            print(f"Received mode: {mode}")  # Debug print
+
+            if mode in ['mtg', 'lorcana']:
+                session['game_mode'] = mode
+                return jsonify({'success': True})
+
+            return jsonify({'success': False, 'error': 'Invalid mode'})
+        except Exception as e:
+            print(f"Error in switch_game_mode: {str(e)}")  # Debug print
+            return jsonify({'success': False, 'error': str(e)})
+
+    # Add this to set default game mode
+    @app.before_request
+    def before_request():
+        if 'game_mode' not in session:
+            session['game_mode'] = 'mtg'
+
     login_manager = LoginManager()
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
+
+    # Add this user_loader function
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+
+
 
     # Configure logging
     configure_logging(app)
@@ -68,7 +106,7 @@ def create_app():
     # Create database tables within the app context
     with app.app_context():
         db.create_all()
-        fetch_and_cache_sets()
+        fetch_and_cache_mtg_sets()  # Fetch and cache MTG sets from Scryfall API
 
     @app.template_filter('mana_icons')
     def mana_icons_filter(mana_cost, mana_icons):
