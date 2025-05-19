@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "mtg/base.html" %}
 
 {% block content %}
 <div id="sets-page"> <!-- Added ID here -->
@@ -20,7 +20,7 @@
             {% for set in sets %}
             <div class="card">
                 <div class="card-body d-flex flex-column justify-content-center align-items-center">
-                    <a href="{{ url_for('cards.set_detail', set_code=set.code) }}"
+                    <a href="{{ url_for('mtg.set_detail', set_code=set.code) }}"
                         class="set-link text-decoration-none text-dark d-flex flex-column align-items-center w-100">
                         <h5 class="card-title mb-2">{{ set.name }}</h5>
                         {% if set.icon_url %}
@@ -70,7 +70,7 @@
                 nameSortIndicator.textContent = sortByNameDirection === 'asc' ? '↑' : '↓';
                 dateSortIndicator.textContent = '';
 
-                fetch(`/sets?sort=name&direction=${sortByNameDirection}`)
+                fetch("{{ url_for('mtg.sets') }}?sort=name&direction=" + sortByNameDirection)
                     .then(response => response.text())
                     .then(updateSetsFromResponse);
             });
@@ -80,7 +80,7 @@
                 dateSortIndicator.textContent = sortByDateDirection === 'asc' ? '↑' : '↓';
                 nameSortIndicator.textContent = '';
 
-                fetch(`/sets?sort=date&direction=${sortByDateDirection}`)
+                fetch("{{ url_for('mtg.sets') }}?sort=date&direction=" + sortByDateDirection)
                     .then(response => response.text())
                     .then(updateSetsFromResponse);
             });

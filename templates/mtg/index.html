@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "mtg/base.html" %}
 
 {% block content %}
 
@@ -8,7 +8,7 @@
     <p>Loading...</p>
 </div>
 
-<h1 class="mt-5">Search Magic: The Gathering Cards</h1>
+<h1 class="mt-5">Search Magic: The Gathering Cards New</h1>
 <form id="searchForm" method="get" class="mb-4">
     <div class="input-group">
         <input type="text" class="form-control" name="query" placeholder="e.g. goblin" value="{{ query or '' }}"

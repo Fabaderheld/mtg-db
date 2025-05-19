@@ -1,11 +1,17 @@
-from flask import Flask,current_app
-from .models import db
-from .routes import register_routes
-from .utils.helpers import fetch_and_cache_sets
 import logging
-import re
 import os
+import re
+import secrets
+from flask import Flask, render_template, jsonify, request, session, current_app
+from flask_login import LoginManager
 from markupsafe import Markup
+from flask import Flask
+from .mtg.routes import mtg_bp
+from .lorcana.routes import lorcana_bp
+
+from .models import db,User
+from .routes import register_routes
+from .utils.mtg_helpers import fetch_and_cache_mtg_sets
 
 def configure_logging(app):
     """Configure logging for the app."""
@@ -58,7 +64,7 @@ def create_app():
     # Create database tables within the app context
     with app.app_context():
         db.create_all()
-        fetch_and_cache_sets()
+        fetch_and_cache_mtg_sets()
 
     @app.template_filter('mana_icons')
     def mana_icons_filter(mana_cost, mana_icons):
