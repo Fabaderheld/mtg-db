@@ -74,7 +74,7 @@ def download_lorcana_image(card_id, size='normal'):
         logging.error(f"Error downloading Lorcana image: {e}")
         return None
 
-def fetch_and_cache_LORCANA_IMAGE_PATH(
+def fetch_and_cache_lorcana_cards(
     card_name=None,
     card_type=None,
     selected_ink=None,
@@ -214,7 +214,7 @@ def fetch_and_cache_LORCANA_IMAGE_PATH(
         return final_cards or []
 
     except Exception as e:
-        logging.error(f"Error in fetch_and_cache_LORCANA_IMAGE_PATH: {e}")
+        logging.error(f"Error in fetch_and_cache_lorcana_cards: {e}")
         db.session.rollback()
         return []
 
@@ -263,5 +263,5 @@ def fetch_lorcana_versions(card):
     if not card.name:
         return []
 
-    versions = fetch_and_cache_LORCANA_IMAGE_PATH(card_name=card.name)
+    versions = fetch_and_cache_lorcana_cards(card_name=card.name)
     return [lorcana_card_to_dict(version) for version in versions if version.id != card.id]

@@ -1,0 +1,46 @@
+{% extends "lorcana/base.html" %}
+
+{% block content %}
+
+<!-- Loading spinner overlay -->
+<div id="loading-spinner">
+    <div class="spinner"></div>
+    <p>Loading...</p>
+</div>
+
+<h1 class="mt-5">Search Lorcana Cards</h1>
+<form id="searchForm" method="get" class="mb-4">
+    <div class="input-group">
+        <input type="text" class="form-control" name="query" placeholder="e.g. goblin" value="{{ query or '' }}"
+            required>
+        <button class="btn btn-dark" type="submit">Search</button>
+    </div>
+</form>
+
+{% if error %}
+<div class="alert alert-danger">
+    {{ error }}
+</div>
+{% endif %}
+
+<div id="card-list" class="row">
+    {% include "partials/card_grid.html" %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchForm = document.getElementById('searchForm');
+        if (searchForm) {
+            searchForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                showLoading();
+                setTimeout(() => {
+                    searchForm.submit();
+                }, 50);
+            });
+        }
+    });
+</script>
+<script src="{{ url_for('static', filename='js/Loading.js') }}"></script>
+<script src="{{ url_for('static', filename='js/infinite_scroll.js') }}"></script>
+{% endblock %}
