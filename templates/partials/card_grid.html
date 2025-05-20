@@ -1,7 +1,7 @@
 {% for card in cards %}
 <div class="col-md-4 mb-4">
     <div class="card">
-        <a href="{{ url_for('cards.card_detail', card_id=card.id) }}" class="card-link text-decoration-none text-dark">
+        <a href="{{ url_for('mtg.card_detail', card_id=card.id) }}" class="card-link text-decoration-none text-dark">
             {% if card.local_image_path %}
             <img src="/{{ card.local_image_path }}" class="card-img-top" alt="{{ card.name }}">
             {% else %}
