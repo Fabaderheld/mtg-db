@@ -1,0 +1,30 @@
+{% for card in cards %}
+<div class="col-md-4 mb-4">
+    <div class="card">
+        <a href="{{ url_for('lorcana.card_detail', card_id=card.id) }}"
+            class="card-link text-decoration-none text-dark">
+            {% if card.local_image_path %}
+            <img src="/{{ card.local_image_path }}" class="card-img-top" alt="{{ card.name }}">
+            {% else %}
+            <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center"
+                style="height: 300px;">
+                No Image Available
+            </div>
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ card.name }}</h5>
+                <p class="card-text">{{ card.type_line }}</p>
+            </div>
+        </a>
+        <div class="card-body pt-0"> <!-- Separate card-body for the form -->
+            <form method="post" action="/save">
+                <input type="hidden" name="id" value="{{ card.id }}">
+                <input type="hidden" name="name" value="{{ card.name }}">
+                <input type="hidden" name="image_url" value="{{ card.local_image_path }}">
+                <input type="hidden" name="type_line" value="{{ card.type_line }}">
+                <button type="submit" class="btn btn-dark">Save</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
