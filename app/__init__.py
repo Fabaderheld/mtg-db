@@ -49,8 +49,10 @@ def create_app():
 
     # Ensure folders exist
     logging.info("Creating necessary directories...")
-    logging.debug(f"Creating upload folder at {app.config['UPLOAD_FOLDER']}")
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    logging.debug(f"Creating MTG upload folder at {app.config['MTG_UPLOAD_FOLDER']}")
+    os.makedirs(app.config['MTG_UPLOAD_FOLDER'], exist_ok=True)
+    logging.debug(f"Creating Lorcana upload folder at {app.config['LORCANA_UPLOAD_FOLDER']}")
+    os.makedirs(app.config['LORCANA_UPLOAD_FOLDER'], exist_ok=True)
 
     logging.debug(f"Creating database folder at {os.path.dirname(app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', ''))}")
     os.makedirs(os.path.dirname(app.config['SQLALCHEMY_DATABASE_URI'].replace("sqlite:///", "")), exist_ok=True)

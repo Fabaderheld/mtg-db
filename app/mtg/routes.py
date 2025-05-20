@@ -78,11 +78,13 @@ def set_detail(set_code):
         per_page=20
     )
 
+    logging.info(f"Cards found: {len(cards)}")
+
     # If AJAX, return only the cards grid partial
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         if not cards:
             return '', 204  # No Content
-        return render_template('../partials/card_grid.html', cards=cards)
+        return render_template('partials/card_grid.html', cards=cards)
 
     # Otherwise, render the full page
     return render_template(
