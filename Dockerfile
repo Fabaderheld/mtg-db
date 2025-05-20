@@ -9,7 +9,16 @@ COPY requirements.txt /card-game-assistant/
 COPY run.py /card-game-assistant/
 COPY config.py /card-game-assistant/
 COPY templates/ /card-game-assistant/templates/
-COPY static/ /card-game-assistant/static/
+
+# Create a directory for core static files
+RUN mkdir /card-game-assistant/core_static
+
+# Copy static files into the container
+COPY static/css /card-game-assistant/core_static/css
+COPY static/js /card-game-assistant/core_static/js
+COPY static/fonts /card-game-assistant/core_static/fonts
+COPY static/images /card-game-assistant/core_static/images
+
 COPY app/ /card-game-assistant/app
 # Add other necessary files and directories here
 
@@ -23,5 +32,10 @@ EXPOSE 5000
 ENV FLASK_APP=run.py
 ENV FLASK_ENV=development
 
-# Run app.py when the container launches
-CMD ["flask", "run", "--host=0.0.0.0"]
+# Copy the entrypoint script into the container
+COPY entrypoint.sh /card-game-assistant/entrypoint.sh
+
+# Make entrypoint executable
+RUN chmod +x entrypoint.sh
+
+ENTRYPOINT ["/card-game-assistant/entrypoint.sh"]
