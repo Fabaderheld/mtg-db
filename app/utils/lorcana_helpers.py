@@ -46,27 +46,28 @@ def download_lorcana_image(card_id, size='normal'):
     Downloads a Lorcana card image using Lorcast's image URL format
     Sizes: small, normal, large
     """
+    logging.info(f"Downloading Lorcana image for card ID {card_id} with size {size}")
     try:
         # Construct the image URL based on Lorcast's format
-        base_url = "https://api.lorcast.com/v0/cards"
-        image_url = f"{base_url}/{card_id}/image/{size}"
+        base_url = "https://cards.lorcast.io/card/digital"
+        image_url = f"{base_url}/{size}/{card_id}.avif"
 
         # Create the save path
         filename = f"{card_id}_{size}.avif"
-        save_dir = os.path.join(current_app.static_folder, "LORCANA_IMAGE_PATH")
+        save_dir = os.path.join(current_app.static_folder, current_app.config['LORCANA_UPLOAD_FOLDER'])
         os.makedirs(save_dir, exist_ok=True)
         save_path = os.path.join(save_dir, filename)
 
         if os.path.exists(save_path):
             logging.info(f"Lorcana image already exists at {save_path}, skipping download.")
-            return f"LORCANA_IMAGE_PATH/{filename}"
+            return f"{current_app.config['LORCANA_UPLOAD_FOLDER']}/{filename}"
 
         response = requests.get(image_url)
         if response.status_code == 200:
             with open(save_path, 'wb') as f:
                 f.write(response.content)
             logging.info(f"Lorcana image downloaded and saved to {save_path}")
-            return f"LORCANA_IMAGE_PATH/{filename}"
+            return f"{current_app.config['LORCANA_UPLOAD_FOLDER']}/{filename}"
         else:
             logging.error(f"Failed to download Lorcana image from {image_url}")
             return None
@@ -98,6 +99,7 @@ def fetch_and_cache_lorcana_cards(
             params['ink'] = selected_ink
         if selected_sets:
             params['set'] = selected_sets[0] if isinstance(selected_sets, list) else selected_sets
+        logging.info(f"Lorcana Search Query: {params}, Page: {page}")
 
         # Query local database first
         db_query = LorcanaCard.query
@@ -124,14 +126,25 @@ def fetch_and_cache_lorcana_cards(
         if response.status_code != 200:
             logging.warning(f"Lorcast fetch failed: {response.status_code}")
             return paginated_cards
+        else:
+            logging.info(f"Lorcast fetch successful: {response.status_code}")
+        # Process the response
 
         data = response.json()
         new_cards = []
-
-        for card_data in data:
+        cards = data.get("results", [])
+        logging.info(f"cards type: {type(cards)}; length: {len(cards)}")
+        if cards and not isinstance(cards[0], dict):
+            logging.error(f"First card is not a dict: {cards[0]} (type: {type(cards[0])})")
+        for card_data in cards:
+            logging.info(f"card_data type: {type(card_data)}; value: {card_data}")
+            # rest of your code
             # Skip if card exists
             if LorcanaCard.query.get(card_data["id"]):
+                logging.debug(f"Card {card_data['id']} already exists in the database, skipping.")
                 continue
+            else:
+                logging.debug(f"Processing new card: {card_data['name']}")
 
             # Download images for different sizes
             image_paths = {

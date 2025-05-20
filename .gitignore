@@ -15,6 +15,7 @@ project_contents.md
 static/mtg_images/*
 static/mtg_mana/*
 static/mtg_sets_icons/*
+static/lorcana_images/*
 **/__pycache__/*
 __pycache__/
 **/*.pyc
