@@ -74,3 +74,16 @@ def advanced_search():
             page=page,
             per_page=per_page
         )
+
+@lorcana_bp.route('/card/<card_id>')
+def card_detail(card_id):
+    card = LorcanaCard.query.get(card_id)
+    if not card:
+        return "Card not found", 404
+
+    card_set = card.set if card.set else None
+    # mana_icons = fetch_and_cache__mana_icons()  # Fetch mana icons from Scryfall API
+    # reprints = fetch_mtg_reprints(card)  # Fetch reprints from Scryfall API
+    # logging.info(f"Reprints found: {reprints}")
+
+    return render_template('mtg/card_detail.html', card=card, card_set=card_set, mana_icons="", reprints="null")
