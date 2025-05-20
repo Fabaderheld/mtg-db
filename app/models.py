@@ -32,8 +32,8 @@ class MtgCard(db.Model):
 
     # Relationships
     set = db.relationship("MtgSet", back_populates="cards")
-    colors = db.relationship("Color", secondary="card_colors", back_populates="cards")
-    types = db.relationship("Type", secondary="card_types", back_populates="cards")
+    colors = db.relationship("MtgColor", secondary="mtg_card_colors", back_populates="cards")
+    types = db.relationship("MtgType", secondary="mtg_card_types", back_populates="cards")
 
 class MtgSet(db.Model):
     __tablename__ = 'mtg_set'
@@ -48,31 +48,31 @@ class MtgSet(db.Model):
 
     cards = db.relationship("MtgCard", back_populates="set")
 
-class Color(db.Model):
-    __tablename__ = 'color'
+class MtgColor(db.Model):
+    __tablename__ = 'mtg_color'
     id = db.Column(db.String, primary_key=True)
     name = db.Column(db.String)
-    cards = db.relationship("MtgCard", secondary="card_colors", back_populates="colors")
+    cards = db.relationship("MtgCard", secondary="mtg_card_colors", back_populates="colors")
 
-class Type(db.Model):
-    __tablename__ = 'type'
+class MtgType(db.Model):
+    __tablename__ = 'mtg_type'
     id = db.Column(db.String, primary_key=True)
     name = db.Column(db.String)
-    cards = db.relationship("MtgCard", secondary="card_types", back_populates="types")
+    cards = db.relationship("MtgCard", secondary="mtg_card_types", back_populates="types")
 
 # Association tables for many-to-many relations
-card_colors = db.Table('card_colors',
+mtg_card_colors = db.Table('mtg_card_colors',
     db.Column('card_id', db.String, db.ForeignKey('mtg_card.id'), primary_key=True),
-    db.Column('color_id', db.String, db.ForeignKey('color.id'), primary_key=True)
+    db.Column('color_id', db.String, db.ForeignKey('mtg_color.id'), primary_key=True)
 )
 
-card_types = db.Table('card_types',
+mtg_card_types = db.Table('mtg_card_types',
     db.Column('card_id', db.String, db.ForeignKey('mtg_card.id'), primary_key=True),
-    db.Column('type_id', db.String, db.ForeignKey('type.id'), primary_key=True)
+    db.Column('type_id', db.String, db.ForeignKey('mtg_type.id'), primary_key=True)
 )
 
 # Define the association table for the many-to-many relationship between Card and Set
-card_sets = db.Table('card_sets',
+mtg_card_sets = db.Table('mtg_card_sets',
     db.Column('card_id', db.String, db.ForeignKey('mtg_card.id'), primary_key=True),
     db.Column('set_code', db.String, db.ForeignKey('mtg_set.code'), primary_key=True)
 )

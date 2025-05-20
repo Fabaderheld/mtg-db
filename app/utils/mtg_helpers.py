@@ -7,7 +7,7 @@ from flask import current_app
 
 from ..models import (
     MtgCard,
-    Color,
+    MtgColor,
     MtgSet,
     db
 )
@@ -173,10 +173,10 @@ def fetch_and_cache_mtg_cards(
             # Process colors
             colors = []
             for color_name in card_data.get("colors", []):
-                color = Color.query.filter_by(name=color_name).first()
+                color = MtgColor.query.filter_by(name=color_name).first()
                 if not color:
                     color_id = f"color_{color_name}"
-                    color = Color(id=color_id, name=color_name)
+                    color = MtgColor(id=color_id, name=color_name)
                     db.session.add(color)
                 colors.append(color)
 
