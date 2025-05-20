@@ -91,8 +91,8 @@ def card_detail(card_id):
 @lorcana_bp.route('/sets/<set_code>')
 def set_detail(set_code):
     page = request.args.get('page', 1, type=int)
-    selected_set = MtgSet.query.filter_by(code=set_code).first_or_404()
-    cards = fetch_and_cache_mtg_cards(
+    selected_set = LorcanaSet.query.filter_by(code=set_code).first_or_404()
+    cards = fetch_and_cache_lorcana_cards(
         selected_sets=[set_code],
         page=page,
         per_page=20
