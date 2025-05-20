@@ -1,4 +1,4 @@
-{% extends "mtg/base.html" %}
+{% extends "lorcana/base.html" %}
 
 {% block content %}
 <div class="container mt-5">
@@ -25,7 +25,8 @@
                         <li class="list-group-item"><strong>Rarity:</strong> {{ card.rarity|capitalize }}</li>
                         <li class="list-group-item">
                             <strong>Set:</strong>
-                            <a href="{{ url_for('mtg.set_detail', set_code=card_set.code) }}">{{ card_set.name }}</a>
+                            <a href="{{ url_for('lorcana.set_detail', set_code=card_set.code) }}">{{ card_set.name
+                                }}</a>
                             <img src="{{ url_for('static', filename=card_set.local_icon_path) }}"
                                 alt="{{ card_set.name }}" style="max-height: 25px;">
                         </li>
@@ -52,7 +53,7 @@
                         {% for reprint in reprints %}
                         {% if reprint.set.name != card_set.name %}
                         <li class="list-group-item d-flex align-items-center">
-                            <a href="{{ url_for('cards.card_detail', card_id=reprint.id) }}"
+                            <a href="{{ url_for('lorcana.card_detail', card_id=reprint.id) }}"
                                 class="d-flex align-items-center text-decoration-none text-dark w-100"
                                 data-image="/{{ reprint.local_image_path }}">
                                 <span class="set-name flex-grow-1">{{ reprint.set.name }}</span>
@@ -69,7 +70,7 @@
                 </div>
             </div>
         </div>
-        <a href="{{ url_for('mtg.index') }}" class="btn btn-primary mt-3">Back to Search</a>
+        <a href="{{ url_for('lorcana.index') }}" class="btn btn-primary mt-3">Back to Search</a>
     </div>
     {% endblock %}
 </div>

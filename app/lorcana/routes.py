@@ -86,4 +86,29 @@ def card_detail(card_id):
     # reprints = fetch_mtg_reprints(card)  # Fetch reprints from Scryfall API
     # logging.info(f"Reprints found: {reprints}")
 
-    return render_template('mtg/card_detail.html', card=card, card_set=card_set, mana_icons="", reprints="null")
+    return render_template('lorcana/card_detail.html', card=card, card_set=card_set)
+
+@lorcana_bp.route('/sets/<set_code>')
+def set_detail(set_code):
+    page = request.args.get('page', 1, type=int)
+    selected_set = MtgSet.query.filter_by(code=set_code).first_or_404()
+    cards = fetch_and_cache_mtg_cards(
+        selected_sets=[set_code],
+        page=page,
+        per_page=20
+    )
+
+    logging.info(f"Cards found: {len(cards)}")
+
+    # If AJAX, return only the cards grid partial
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        if not cards:
+            return '', 204  # No Content
+        return render_template('partials/card_grid.html', cards=cards)
+
+    # Otherwise, render the full page
+    return render_template(
+        'mtg/set_detail.html',
+        cards=cards,
+        selected_set=selected_set
+    )
