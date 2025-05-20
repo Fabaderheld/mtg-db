@@ -67,7 +67,7 @@ def download_lorcana_image(card_id, size='normal'):
             with open(save_path, 'wb') as f:
                 f.write(response.content)
             logging.info(f"Lorcana image downloaded and saved to {save_path}")
-            return f"{current_app.config['LORCANA_UPLOAD_FOLDER']}/{filename}"
+            return f"{image_url}"
         else:
             logging.error(f"Failed to download Lorcana image from {image_url}")
             return None
@@ -133,11 +133,9 @@ def fetch_and_cache_lorcana_cards(
         data = response.json()
         new_cards = []
         cards = data.get("results", [])
-        logging.info(f"cards type: {type(cards)}; length: {len(cards)}")
         if cards and not isinstance(cards[0], dict):
             logging.error(f"First card is not a dict: {cards[0]} (type: {type(cards[0])})")
         for card_data in cards:
-            logging.info(f"card_data type: {type(card_data)}; value: {card_data}")
             # rest of your code
             # Skip if card exists
             if LorcanaCard.query.get(card_data["id"]):
@@ -203,7 +201,8 @@ def fetch_and_cache_lorcana_cards(
                 set_id=card_data.get("set", {}).get("id"),
                 image_uris_small=image_paths.get('small'),
                 image_uris_normal=image_paths.get('normal'),
-                image_uris_large=image_paths.get('large')
+                image_uris_large=image_paths.get('large'),
+                local_image_path=f"{current_app.config['LORCANA_IMAGE_PATH']}/{card_data["id"]}_large.avif"
             )
 
             new_card.types = types

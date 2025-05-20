@@ -110,6 +110,7 @@ class LorcanaCard(db.Model):
     set_id = db.Column(db.String, db.ForeignKey('lorcana_set.id')) # Use a separate set table
     usd = db.Column(db.String)
     usd_foil = db.Column(db.String)
+    local_image_path = db.Column(db.String)
 
     # Relationships
     set = db.relationship("LorcanaSet", back_populates="cards")
