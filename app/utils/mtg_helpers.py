@@ -1,3 +1,4 @@
+# mtg_utils.py
 import json
 import logging
 import os
@@ -8,6 +9,7 @@ from flask import current_app
 from ..models import (
     MtgCard,
     MtgColor,
+    MtgType,
     MtgSet,
     db
 )
@@ -20,7 +22,6 @@ def fetch_and_cache_mtg_sets():
             data = response.json()
             sets = data.get("data", [])
             for set_data in sets:
-                #logging.debug(f"Looking up set: {set_data['name']}")
                 existing_set = MtgSet.query.get(set_data.get("id"))
                 if not existing_set:
                     logging.debug(f"Processing set: {set_data['name']}")
@@ -48,7 +49,8 @@ def fetch_and_cache_mtg_sets():
                         code=set_data.get("code"),
                         icon_url=icon_url,
                         local_icon_path=local_icon_path,
-                        released_at=set_data.get("released_at")
+                        released_at=set_data.get("released_at"),
+                        set_type=set_data.get("set_type")
                     )
                     db.session.add(new_set)
                     db.session.flush()
@@ -61,6 +63,9 @@ def fetch_and_cache_mtg_sets():
         db.session.rollback()
 
 def download_mtg_image(url, filename):
+    """
+    Downloads an MTG card image from the provided URL
+    """
     logging.debug(f"Downloading MTG image from {url} to {filename}")
     if os.path.exists(filename):
         logging.info(f"MTG image already exists at {filename}, skipping download.")
@@ -74,7 +79,7 @@ def download_mtg_image(url, filename):
             logging.info(f"MTG image downloaded and saved to {filename}")
             return True
         else:
-            logging.error(f"Failed to download MTG image from {url}")
+            logging.error(f"Failed to download MTG image from {url}: {response.status_code}")
             return False
     except Exception as e:
         logging.error(f"Error downloading MTG image: {e}")
@@ -116,7 +121,7 @@ def fetch_and_cache_mtg_cards(
         if card_type:
             db_query = db_query.filter(MtgCard.type_line.ilike(f"%{card_type}%"))
         if selected_colors:
-            db_query = db_query.join(card_colors).join(Color).filter(Color.name.in_(selected_colors))
+            db_query = db_query.join(mtg_card_colors).join(MtgColor).filter(MtgColor.name.in_(selected_colors))
         if selected_sets:
             db_query = db_query.filter(MtgCard.set.has(MtgSet.code.in_(selected_sets)))
         if search_string:
@@ -148,27 +153,33 @@ def fetch_and_cache_mtg_cards(
         if response.status_code != 200:
             logging.warning(f"Scryfall fetch failed: {response.status_code}")
             return paginated_cards
+        else:
+            logging.info(f"Scryfall fetch successful: {response.status_code}")
 
         data = response.json()
+        cards = data.get("data", [])
+        logging.info(f"Retrieved {len(cards)} cards from Scryfall")
         new_cards = []
 
-        for card_data in data.get("data", []):
+        for card_data in cards:
             # Skip if card exists
             if MtgCard.query.get(card_data["id"]):
+                logging.debug(f"Card {card_data['id']} already exists in the database, skipping.")
                 continue
+            else:
+                logging.debug(f"Processing new card: {card_data['name']}")
 
             # Process image
             image_url = card_data.get("image_uris", {}).get("normal")
             local_image_path = None
             if image_url:
                 filename = f"{card_data['id']}.jpg"
-                save_path = os.path.join(current_app.config['MTG_UPLOAD_FOLDER'], filename)
+                save_dir = os.path.join(current_app.static_folder, current_app.config['MTG_UPLOAD_FOLDER'])
+                os.makedirs(save_dir, exist_ok=True)
+                save_path = os.path.join(save_dir, filename)
 
                 if download_mtg_image(image_url, save_path):
-                    local_image_path = os.path.join(
-                        current_app.config['MTG_IMAGE_PATH'],
-                        filename
-                    )
+                    local_image_path = f"{current_app.config['MTG_IMAGE_PATH']}/{filename}"
 
             # Process colors
             colors = []
@@ -180,6 +191,20 @@ def fetch_and_cache_mtg_cards(
                     db.session.add(color)
                 colors.append(color)
 
+            # Process types
+            types = []
+            if card_data.get("type_line"):
+                type_parts = card_data.get("type_line").split("—")
+                if len(type_parts) > 0:
+                    main_types = type_parts[0].strip().split()
+                    for type_name in main_types:
+                        type_obj = MtgType.query.filter_by(name=type_name).first()
+                        if not type_obj:
+                            type_id = f"type_{type_name.lower()}"
+                            type_obj = MtgType(id=type_id, name=type_name)
+                            db.session.add(type_obj)
+                        types.append(type_obj)
+
             # Get or create set
             card_set = None
             if 'set' in card_data:
@@ -190,18 +215,30 @@ def fetch_and_cache_mtg_cards(
                 id=card_data["id"],
                 oracle_id=card_data.get("oracle_id"),
                 name=card_data["name"],
+                layout=card_data.get("layout"),
                 type_line=card_data.get("type_line"),
-                mana_costs=card_data.get("mana_cost"),
+                mana_cost=card_data.get("mana_cost"),
+                cmc=card_data.get("cmc"),
                 oracle_text=card_data.get("oracle_text"),
                 power=card_data.get("power"),
                 toughness=card_data.get("toughness"),
+                loyalty=card_data.get("loyalty"),
                 rarity=card_data.get("rarity"),
+                collector_number=card_data.get("collector_number"),
+                set_code=card_data.get("set"),
+                lang=card_data.get("lang"),
+                released_at=card_data.get("released_at"),
+                mana_costs=card_data.get("mana_cost"),
                 image_uri=image_url,
                 local_image_path=local_image_path,
-                legalities=json.dumps(card_data.get("legalities", {}))
+                scryfall_uri=card_data.get("scryfall_uri"),
+                rulings_uri=card_data.get("rulings_uri"),
+                legalities=json.dumps(card_data.get("legalities", {})),
+                prints_search_uri=card_data.get("prints_search_uri")
             )
 
             new_card.colors = colors
+            new_card.types = types
             if card_set:
                 new_card.set = card_set
 
@@ -211,6 +248,7 @@ def fetch_and_cache_mtg_cards(
         if new_cards:
             try:
                 db.session.commit()
+                logging.info(f"Added {len(new_cards)} new MTG cards to database")
             except Exception as e:
                 logging.error(f"Error committing MTG cards to database: {e}")
                 db.session.rollback()
@@ -297,19 +335,4 @@ def fetch_mtg_reprints(card):
         return []
 
     reprints = fetch_and_cache_mtg_cards(card_name=card.name, unique_cards=False)
-    return [mtg_card_to_dict(reprint) for reprint in reprints]
-
-
-def fetch_and_cache_sets(game="mtg"):
-    if game == "mtg":
-        return fetch_and_cache_mtg_sets()
-    elif game == "lorcana":
-        return fetch_and_cache_lorcana_sets()
-    else:
-        raise ValueError("Unknown game")
-
-def get_card_by_id(game, card_id):
-    if game == "mtg":
-        return MtgCard.query.get(card_id)
-    elif game == "lorcana":
-        return LorcanaCard.query.get(card_id)
+    return [mtg_card_to_dict(reprint) for reprint in reprints if reprint.id != card.id]

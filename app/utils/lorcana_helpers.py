@@ -25,11 +25,15 @@ def fetch_and_cache_lorcana_sets():
                 if not existing_set:
                     logging.debug(f"Processing set: {set_data['name']}")
 
+                    # Initialize local_icon_path (missing in original)
+                    local_icon_path = None
+
                     new_set = LorcanaSet(
                         id=set_data.get("id"),
                         name=set_data.get("name"),
                         code=set_data.get("code"),
-                        released_at=set_data.get("released_at")
+                        released_at=set_data.get("released_at"),
+                        local_icon_path=local_icon_path
                     )
                     db.session.add(new_set)
                     db.session.flush()
@@ -46,7 +50,7 @@ def download_lorcana_image(card_id, size='normal'):
     Downloads a Lorcana card image using Lorcast's image URL format
     Sizes: small, normal, large
     """
-    logging.info(f"Downloading Lorcana image for card ID {card_id} with size {size}")
+    logging.debug(f"Downloading Lorcana image for card ID {card_id} with size {size}")
     try:
         # Construct the image URL based on Lorcast's format
         base_url = "https://cards.lorcast.io/card/digital"
@@ -69,7 +73,7 @@ def download_lorcana_image(card_id, size='normal'):
             logging.info(f"Lorcana image downloaded and saved to {save_path}")
             return f"{image_url}"
         else:
-            logging.error(f"Failed to download Lorcana image from {image_url}")
+            logging.error(f"Failed to download Lorcana image from {image_url}: {response.status_code}")
             return None
     except Exception as e:
         logging.error(f"Error downloading Lorcana image: {e}")
@@ -128,15 +132,14 @@ def fetch_and_cache_lorcana_cards(
             return paginated_cards
         else:
             logging.info(f"Lorcast fetch successful: {response.status_code}")
-        # Process the response
 
+        # Process the response
         data = response.json()
-        new_cards = []
         cards = data.get("results", [])
-        if cards and not isinstance(cards[0], dict):
-            logging.error(f"First card is not a dict: {cards[0]} (type: {type(cards[0])})")
+        logging.info(f"Retrieved {len(cards)} cards from Lorcast")
+        new_cards = []
+
         for card_data in cards:
-            # rest of your code
             # Skip if card exists
             if LorcanaCard.query.get(card_data["id"]):
                 logging.debug(f"Card {card_data['id']} already exists in the database, skipping.")
@@ -153,7 +156,10 @@ def fetch_and_cache_lorcana_cards(
 
             # Process types
             types = []
-            for type_name in card_data.get("type", []):
+            type_data = card_data.get("type", [])
+            if isinstance(type_data, str):
+                type_data = [type_data]
+            for type_name in type_data:
                 type_obj = LorcanaType.query.filter_by(name=type_name).first()
                 if not type_obj:
                     type_obj = LorcanaType(name=type_name)
@@ -162,7 +168,10 @@ def fetch_and_cache_lorcana_cards(
 
             # Process classifications
             classifications = []
-            for class_name in card_data.get("classifications", []) or []:
+            class_data = card_data.get("classifications", []) or []
+            if isinstance(class_data, str):
+                class_data = [class_data]
+            for class_name in class_data:
                 class_obj = LorcanaClassification.query.filter_by(name=class_name).first()
                 if not class_obj:
                     class_obj = LorcanaClassification(name=class_name)
@@ -171,7 +180,10 @@ def fetch_and_cache_lorcana_cards(
 
             # Process illustrators
             illustrators = []
-            for illust_name in card_data.get("illustrators", []):
+            illust_data = card_data.get("illustrators", [])
+            if isinstance(illust_data, str):
+                illust_data = [illust_data]
+            for illust_name in illust_data:
                 illust_obj = LorcanaIllustrator.query.filter_by(name=illust_name).first()
                 if not illust_obj:
                     illust_obj = LorcanaIllustrator(name=illust_name)
@@ -202,7 +214,7 @@ def fetch_and_cache_lorcana_cards(
                 image_uris_small=image_paths.get('small'),
                 image_uris_normal=image_paths.get('normal'),
                 image_uris_large=image_paths.get('large'),
-                local_image_path=f"{current_app.config['LORCANA_IMAGE_PATH']}/{card_data["id"]}_large.avif"
+                local_image_path=f"{current_app.config['LORCANA_IMAGE_PATH']}/{card_data['id']}_large.avif"
             )
 
             new_card.types = types
@@ -215,6 +227,7 @@ def fetch_and_cache_lorcana_cards(
         if new_cards:
             try:
                 db.session.commit()
+                logging.info(f"Added {len(new_cards)} new Lorcana cards to database")
             except Exception as e:
                 logging.error(f"Error committing Lorcana cards to database: {e}")
                 db.session.rollback()
