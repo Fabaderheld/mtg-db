@@ -19,8 +19,12 @@ def fetch_and_cache_lorcana_sets():
         logging.info("Fetching sets from Lorcast...")
         response = requests.get("https://api.lorcast.com/v0/sets")
         if response.status_code == 200:
+            # Process the response
             data = response.json()
-            for set_data in data:
+            sets = data.get("results", [])
+            logging.info(f"Retrieved {len(sets)} sets from Lorcast")
+            new_sets = []
+            for set_data in sets:
                 existing_set = LorcanaSet.query.get(set_data.get("id"))
                 if not existing_set:
                     logging.debug(f"Processing set: {set_data['name']}")

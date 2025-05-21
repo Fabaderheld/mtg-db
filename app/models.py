@@ -124,6 +124,8 @@ class LorcanaSet(db.Model):
     id = db.Column(db.String, primary_key=True)
     code = db.Column(db.String)
     name = db.Column(db.String)
+    released_at = db.Column(db.String)
+    local_icon_path = db.Column(db.String)
 
     cards = db.relationship("LorcanaCard", back_populates="set")
 

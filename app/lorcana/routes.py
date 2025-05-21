@@ -85,8 +85,9 @@ def card_detail(card_id):
     # mana_icons = fetch_and_cache__mana_icons()  # Fetch mana icons from Scryfall API
     # reprints = fetch_mtg_reprints(card)  # Fetch reprints from Scryfall API
     # logging.info(f"Reprints found: {reprints}")
-
-    return render_template('lorcana/card_detail.html', card=card, card_set=card_set)
+    rendered_html = render_template('lorcana/card_detail.html', card=card, card_set=card_set)
+    logging.debug(rendered_html)
+    return rendered_html
 
 @lorcana_bp.route('/sets/<set_code>')
 def set_detail(set_code):
