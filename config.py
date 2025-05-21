@@ -8,7 +8,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # This is the folder where images are stored for web access
-    MTG_UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "mtg_images")
-    MTG_IMAGE_PATH = os.path.join("static", "mtg_images")
-    LORCANA_UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "lorcana_images")
-    LORCANA_IMAGE_PATH = os.path.join("static", "lorcana_images")
+    MTG_UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "images", "mtg_images")
+    MTG_IMAGE_PATH = os.path.join("static", "images", "mtg_images")
+    LORCANA_UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "images", "lorcana_images")
+    LORCANA_IMAGE_PATH = os.path.join("static", "images", "lorcana_images")
