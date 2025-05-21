@@ -98,6 +98,30 @@ def create_app():
                 html = html.replace(symbol, img_tag)
         return Markup(html)
 
+    @app.template_filter('lorcana_icons')
+    def lorcana_icons_filter(text):
+        logging.debug(f"Filtering text: {text}")
+        # Define the mapping of symbols to icon paths
+        lorcana_icons = {
+            '{I}': 'images/lorcana/ink-cost.svg',
+            '{E}': 'images/lorcana/tap.svg',
+            '{S}': 'images/lorcana/strength.svg',
+            '{L}': 'images/lorcana/lore.svg'
+        }
+
+        # Find all symbols like {I}, {E}, {S}, {L}
+        symbols = re.findall(r'\{[IESL]\}', text or "")
+        html = text or ""
+
+        for symbol in set(symbols):  # Use set to avoid replacing the same symbol multiple times
+            icon_path = lorcana_icons.get(symbol)
+            if icon_path:
+                icon_url = current_app.url_for('static', filename=icon_path)
+                img_tag = f'<img src="{icon_url}" alt="{symbol}" class="lorcana-icon" style="width:20px; height:20px; vertical-align:middle;">'
+                html = html.replace(symbol, img_tag)
+
+        return Markup(html)
+
 
     return app
 
