@@ -18,11 +18,13 @@
                 <div class="card-body">
                     <h5 class="card-title">{{ card.type_line }}</h5>
                     <ul class="list-group list-group-flush">
-                        <li class="list-group-item"><strong>Mana Cost:</strong> {{
-                            card.mana_costs|mana_icons(mana_icons) }}</li>
-                        <li class="list-group-item"><strong>Power/Toughness:</strong> {{ card.power }}/{{ card.toughness
+                        <li class="list-group-item"><strong>Cost:</strong> {{
+                            card.cost }}</li>
+                        <li class="list-group-item"><strong>Strength / Willpower:</strong> {{ card.strength }} / {{
+                            card.willpower
                             }}</li>
                         <li class="list-group-item"><strong>Rarity:</strong> {{ card.rarity|capitalize }}</li>
+                        <li class="list-group-item"><strong>Lore:</strong> {{ card.lore }}</li>
                         <li class="list-group-item">
                             <strong>Set:</strong>
                             <a href="{{ url_for('lorcana.set_detail', set_code=card_set.code) }}">{{ card_set.name
