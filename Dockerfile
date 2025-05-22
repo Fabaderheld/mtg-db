@@ -11,7 +11,7 @@ COPY config.py /card-game-assistant/
 COPY templates/ /card-game-assistant/templates/
 
 # Create a directory for core static files
-RUN mkdir /card-game-assistant/core_static
+RUN mkdir /card-game-assistant/core_static /card-game-assistant/static
 
 # Copy static files into the container
 COPY static/css /card-game-assistant/core_static/css
