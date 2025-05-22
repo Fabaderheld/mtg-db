@@ -10,6 +10,50 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/spinner.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mtg.css') }}">
+
+    <style>
+        body {
+            position: relative;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: url("{{ url_for('static', filename='images/mtg/mtg_back.webp') }}");
+            background-size: cover;
+            background-position: top center;
+            /* Focus on the art part */
+
+            background-repeat: no-repeat;
+            background-color: rgba(0, 0, 0, 0.7);
+            background-blend-mode: multiply;
+            filter: blur(10px);
+            /* Maybe more blur for detailed card art */
+            opacity: 0.8;
+            /* Slightly more transparent */
+            pointer-events: none;
+        }
+
+        .container {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .card {
+            background-color: rgba(255, 255, 255, 0.95);
+            border: none;
+        }
+
+        .no-hover:hover {
+            transform: none !important;
+        }
+    </style>
+    {% block head_extra %}{% endblock %}
 </head>
 
 
