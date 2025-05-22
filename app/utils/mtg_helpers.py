@@ -330,9 +330,66 @@ def mtg_card_to_dict(card):
     }
 
 def fetch_mtg_reprints(card):
-    """Fetch MTG reprints and convert them to dictionaries"""
     if not card.oracle_id:
         return []
 
-    reprints = fetch_and_cache_mtg_cards(card_name=card.name, unique_cards=False)
-    return [mtg_card_to_dict(reprint) for reprint in reprints if reprint.id != card.id]
+    # Try local DB first
+    reprints = MtgCard.query.filter(
+        MtgCard.oracle_id == card.oracle_id,
+        MtgCard.id != card.id
+    ).all()
+    if reprints:
+        return [mtg_card_to_dict(reprint) for reprint in reprints]
+
+    # Fallback: fetch from Scryfall using prints_search_uri
+    if card.prints_search_uri:
+        response = requests.get(card.prints_search_uri)
+        if response.status_code == 200:
+            data = response.json()
+            cards = data.get("data", [])
+            # Map Scryfall dict to your output dict directly
+            return [
+                scryfall_card_to_dict(card_data)
+                for card_data in cards
+                if card_data["id"] != card.id
+            ]
+    return []
+
+def scryfall_card_to_dict(card_data):
+    set_code = card_data.get('set')
+    card_set = MtgSet.query.filter_by(code=set_code).first() if set_code else None
+
+    return {
+        'id': card_data.get('id'),
+        'oracle_id': card_data.get('oracle_id'),
+        'name': card_data.get('name'),
+        'layout': card_data.get('layout'),
+        'mana_cost': card_data.get('mana_cost'),
+        'cmc': card_data.get('cmc'),
+        'type_line': card_data.get('type_line'),
+        'oracle_text': card_data.get('oracle_text'),
+        'power': card_data.get('power'),
+        'toughness': card_data.get('toughness'),
+        'loyalty': card_data.get('loyalty'),
+        'rarity': card_data.get('rarity'),
+        'collector_number': card_data.get('collector_number'),
+        'set_code': set_code,
+        'lang': card_data.get('lang'),
+        'released_at': card_data.get('released_at'),
+        'image_uri': card_data.get('image_uris', {}).get('normal'),
+        'scryfall_uri': card_data.get('scryfall_uri'),
+        'rulings_uri': card_data.get('rulings_uri'),
+        'legalities': card_data.get('legalities'),
+        'prints_search_uri': card_data.get('prints_search_uri'),
+        'colors': card_data.get('colors', []),
+        'types': card_data.get('type_line', '').split(' ') if card_data.get('type_line') else [],
+        'set': {
+            'id': card_set.id,
+            'code': card_set.code,
+            'name': card_set.name,
+            'icon_url': card_set.icon_url,
+            'local_icon_path': card_set.local_icon_path,
+            'released_at': card_set.released_at,
+            'set_type': card_set.set_type
+        } if card_set else None
+    }
