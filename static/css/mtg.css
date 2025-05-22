@@ -145,6 +145,16 @@ a:focus {
     font-family: 'Beleren', sans-serif;
 }
 
+/* Hover effect class - only apply to cards that should have hover */
+.card-hover {
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.card-hover:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+
 .set-checkbox-container {
     column-count: 2;
     gap: 12px;

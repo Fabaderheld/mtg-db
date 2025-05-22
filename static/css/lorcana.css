@@ -162,37 +162,14 @@ a:focus {
     font-family: 'Beleren', sans-serif;
 }
 
-.card {
-    display: flex;
-    flex-direction: column;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+/* Hover effect class - only apply to cards that should have hover */
+.card-hover {
     transition: transform 0.15s, box-shadow 0.15s;
-    background: #fff;
-    margin-bottom: 24px;
 }
 
-.card-body {
-    flex: 1 1 auto;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-}
-
-.card:hover {
+.card-hover:hover {
     transform: translateY(-4px) scale(1.02);
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-}
-
-.card-img-top {
-    display: block;
-    margin: 0 auto 12px auto;
-    height: 550px;
-    /* or 320px, or whatever you prefer */
-    width: 100%;
-    object-fit: contain;
-    background: #f8f5f0;
-    border-radius: 8px 8px 0 0;
 }
 
 .set-checkbox-container {
