@@ -65,13 +65,13 @@
 
 {% block content %}
 <div class="container mt-5">
-    <div class="row mt-4">
+    <div class="row">
         <!-- Left: Card image and details -->
-        <div class="col-md-5 d-flex align-items-stretch">
-            <div class="card h-100 no-hover">
+        <div class="col-12 col-md-5 d-flex align-items-stretch">
+            <div class="card h-100 no-hover custom-card-style">
                 {% if card.local_image_path %}
-                <img src="/{{ card.local_image_path }}" class="card-img-top" alt="{{ card.name }}"
-                    style="height: 500px; width: auto; object-fit: contain;">
+                <img src="/{{ card.local_image_path }}" class="card-img-top img-fluid custom-card-style"
+                    alt="{{ card.name }}" style="object-fit: contain;">
                 {% else %}
                 <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center"
                     style="height: 300px;">
@@ -97,15 +97,16 @@
             </div>
         </div>
         <!-- Right: Oracle text -->
-        <div class="col-md-7 d-flex flex-column">
-            <div class="card h-100 no-hover mb-4">
+        <div class="col-12 col-md-7 d-flex flex-column">
+            <div class="card h-100 no-hover mt-md-0 mt-4">
                 <div class="card-body d-flex justify-content-center align-items-center">
-                    <p class="card-text text-center" style="white-space: pre-line;">
-                        {{ card.oracle_text|oracle_icons(mana_icons) }}
+                    <p class="card-text text-center" style="white-space: pre-line;">{{
+                        card.oracle_text|oracle_icons(mana_icons) }}
                     </p>
                 </div>
             </div>
-            <div class="card no-hover">
+            <!-- Reprints -->
+            <div class="card mt-4 no-hover">
                 <div class="card-body">
                     <h5 class="card-title">Reprints</h5>
                     {% if reprints %}
@@ -130,13 +131,11 @@
                 </div>
             </div>
         </div>
-    </div>
-    <div class="col-12 mt-4 text-center">
-        <a href="{{ url_for('mtg.index') }}" class="btn btn-primary">Back to Search</a>
+        <div class="col-12 mt-4 text-center">
+            <a href="{{ url_for('mtg.index') }}" class="btn btn-primary">Back to Search</a>
+        </div>
     </div>
 </div>
-</div>
-
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // Create the tooltip element (only once)
