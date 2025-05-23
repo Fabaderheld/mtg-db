@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Lorcana Card Recognition - Camera Import</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='lorcana/css/style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Lorcana Card Recognition - Camera Import</h1>
+
+        <div class="video-container">
+            <video id="camera-feed" autoplay playsinline></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+            <img id="processed-frame" alt="Processed Frame">
+        </div>
+
+        <div class="card-info">
+            <h2>Card Information</h2>
+            <div id="info-content">No card detected</div>
+        </div>
+
+        <div class="debug-info">
+            <h2>Debug Information</h2>
+            <div id="debug-content">No debug info</div>
+        </div>
+
+        <div class="controls">
+            <h2>Controls</h2>
+            <button id="decrease-threshold">Decrease Area Threshold</button>
+            <button id="increase-threshold">Increase Area Threshold</button>
+            <span id="current-threshold">Current threshold: 5000</span>
+            <button id="toggle-edges">Toggle Edge Visualization</button>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('camera-feed');
+        const canvas = document.getElementById('canvas');
+        const processedFrame = document.getElementById('processed-frame');
+        const ctx = canvas.getContext('2d');
+
+        // Start the camera when the page loads
+        startCamera();
+
+        video.addEventListener('loadedmetadata', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            // Start processing frames after video is ready
+            setInterval(sendFrameToServer, 500); // every 500ms
+        });
+
+        async function sendFrameToServer() {
+            // Draw the current video frame to the canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // Get the image as a base64-encoded JPEG
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+
+            // Send the image to the server for processing
+            const response = await fetch('{{ url_for("lorcana.process_frame_route") }}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({image: imageData})
+            });
+
+            const data = await response.json();
+            // Display the processed (debug) image
+            processedFrame.src = data.processed_image;
+        }
+    </script>
+</body>
+
+</html>

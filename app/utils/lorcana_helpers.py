@@ -14,6 +14,388 @@ from ..models import (
     db
 )
 
+from ..utils import shared_state
+
+import cv2
+import numpy as np
+import pytesseract
+from rapidfuzz import process, fuzz
+import threading
+import logging
+
+# Global variables for thread safety
+output_frame = None
+card_info = None
+lock = threading.Lock()
+
+def get_card_names_from_db():
+    """
+    Get all card names from the database for fuzzy matching.
+    """
+    from app.models import LorcanaCard  # Import here to avoid circular imports
+
+    try:
+        # Query all card names from the database
+        card_names = [card.name for card in LorcanaCard.query.with_entities(LorcanaCard.name).distinct()]
+        return card_names
+    except Exception as e:
+        logging.error(f"Error getting card names from database: {e}")
+        return []
+
+
+def detect_card(frame, debug=True):
+    """
+    Detects a card in the frame and returns a perspective-corrected image.
+    Optimized for cards with rounded corners.
+    """
+    from app.utils import shared_state
+
+    # Create a copy for debugging visualization
+    debug_frame = frame.copy() if debug else None
+
+    # Convert to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # Apply morphological operations to enhance corners
+    kernel = np.ones((5,5), np.uint8)
+    dilated = cv2.dilate(gray, kernel, iterations=1)
+    eroded = cv2.erode(dilated, kernel, iterations=1)
+
+    # Apply Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(eroded, (5, 5), 0)
+
+    # Edge detection with adjusted thresholds
+    edges = cv2.Canny(blurred, 30, 120)
+
+    # Find contours
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    print(f"Found {len(contours)} contours")
+
+    # Draw all contours on debug frame
+    if debug:
+        cv2.drawContours(debug_frame, contours, -1, (0, 255, 0), 1)
+
+    # Sort contours by area (largest first)
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+
+    # Try both approaches: quadrilateral detection and aspect ratio
+    for i, contour in enumerate(contours[:10]):
+        # APPROACH 1: Try to find a quadrilateral
+        peri = cv2.arcLength(contour, True)
+        # Use a larger epsilon for rounded corners
+        approx = cv2.approxPolyDP(contour, 0.08 * peri, True)
+        area = cv2.contourArea(approx)
+
+        print(f"Contour {i+1}: vertices={len(approx)}, area={area}")
+
+        if len(approx) == 4 and area > shared_state.area_threshold:
+            print(f"Found a quadrilateral with sufficient area: {area}")
+            if debug:
+                cv2.drawContours(debug_frame, [approx], -1, (0, 0, 255), 3)
+
+            # Process the quadrilateral...
+            pts = approx.reshape(4, 2)
+            # Sort points...
+            pts = pts[np.argsort(pts[:, 1])]
+            top = pts[:2][np.argsort(pts[:2, 0])]
+            bottom = pts[2:][np.argsort(pts[2:, 0])]
+            pts = np.vstack([top, bottom[::-1]])
+
+            # Perspective transform...
+            w, h = 421, 588
+            dst_pts = np.array([[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float32)
+            M = cv2.getPerspectiveTransform(pts.astype(np.float32), dst_pts)
+            warped = cv2.warpPerspective(frame, M, (w, h))
+
+            return warped, pts, debug_frame
+
+        # APPROACH 2: Check aspect ratio if not a quadrilateral
+        x, y, w, h = cv2.boundingRect(contour)
+        aspect_ratio = float(w) / h
+
+        # Lorcana cards have aspect ratio around 0.71
+        if 0.65 <= aspect_ratio <= 0.78 and cv2.contourArea(contour) > shared_state.area_threshold:
+            print(f"Found a card-like contour: aspect_ratio={aspect_ratio}, area={cv2.contourArea(contour)}")
+
+            # Create a rectangle for the card
+            rect = np.array([[x, y], [x+w, y], [x+w, y+h], [x, y+h]], dtype=np.int32)
+
+            if debug:
+                cv2.drawContours(debug_frame, [rect], -1, (0, 0, 255), 3)
+
+            # Perspective transform using the rectangle
+            pts = rect.reshape(4, 2)
+            w_card, h_card = 421, 588
+            dst_pts = np.array([[0, 0], [w_card, 0], [w_card, h_card], [0, h_card]], dtype=np.float32)
+            M = cv2.getPerspectiveTransform(pts.astype(np.float32), dst_pts)
+            warped = cv2.warpPerspective(frame, M, (w_card, h_card))
+
+            return warped, pts, debug_frame
+        else:
+            # Draw this contour in blue on debug frame
+            if debug:
+                cv2.drawContours(debug_frame, [approx], -1, (255, 0, 0), 2)
+
+    # If we get here, no card was detected
+    print("No card detected")
+    return None, None, debug_frame
+
+def extract_name(card_img, card_names):
+    """
+    Extract the card name using OCR and fuzzy matching.
+    """
+    # Define the region of interest for the card name
+    # These coordinates need to be adjusted for Lorcana cards
+    y_start, y_end = 30, 80
+    x_start, x_end = 40, 380
+
+    # Crop the name region
+    name_region = card_img[y_start:y_end, x_start:x_end]
+
+    # Convert to grayscale
+    gray = cv2.cvtColor(name_region, cv2.COLOR_BGR2GRAY)
+
+    # Apply thresholding to improve OCR
+    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
+
+    # Use Tesseract to extract text
+    text = pytesseract.image_to_string(thresh, config='--psm 7 -l eng')
+
+    # Clean up the text
+    text = text.strip()
+
+    # Fuzzy match against known card names
+    if text:
+        best_match, score, _ = process.extractOne(text, card_names, scorer=fuzz.WRatio)
+        if score > 60:  # Adjust threshold as needed
+            return best_match
+
+    return None
+
+def lookup_card_in_db(name):
+    """
+    Look up a card by name in the database.
+    """
+    from app.models import LorcanaCard  # Import here to avoid circular imports
+    from app.routes.lorcana import fetch_and_cache_lorcana_cards  # Import your existing function
+
+    try:
+        # Try to find the card in the database first
+        card = LorcanaCard.query.filter(LorcanaCard.name == name).first()
+
+        # If not found, try to fetch it from the API
+        if not card:
+            cards = fetch_and_cache_lorcana_cards(card_name=name, per_page=1)
+            if cards:
+                card = cards[0]
+
+        if card:
+            # Convert the card object to a dictionary
+            return {
+                'id': card.id,
+                'name': card.name,
+                'set': card.set_id,
+                'type': ', '.join([t.name for t in card.types]) if hasattr(card, 'types') else None,
+                'rarity': card.rarity,
+                'text': card.text,
+                'ink': card.ink,
+                'cost': card.cost,
+                'strength': card.strength,
+                'willpower': card.willpower,
+                'image_url': card.image_uris_normal or card.local_image_path
+            }
+    except Exception as e:
+        logging.error(f"Error looking up card in database: {e}")
+
+    return None
+
+def get_debug_info():
+    """
+    Returns the current debug info.
+    """
+    global debug_info, lock
+
+    with lock:
+        return debug_info
+
+def process_frame(frame, card_names):
+    """
+    Process a frame to detect and recognize a Lorcana card.
+    Returns the processed frame, card info, extracted text, and debug info.
+    """
+    # Import shared state
+    from app.utils import shared_state
+
+    # Check if edge visualization is enabled
+    if shared_state.show_edges:
+        display_frame = visualize_edges(frame)
+        return display_frame, None, None, {'card_detected': False}
+
+    # Make a copy of the frame for drawing
+    display_frame = frame.copy()
+
+    # Detect card in the frame
+    card_img, corners, debug_frame = detect_card(frame)
+
+    debug_info = {
+        'card_detected': False,
+        'extracted_text': None,
+        'card_found_in_db': False
+    }
+
+    # Use the debug frame as the display frame
+    display_frame = debug_frame
+
+    if card_img is not None:
+        debug_info['card_detected'] = True
+        # Draw the contour of the detected card
+        if corners is not None:
+            cv2.drawContours(display_frame, [corners.astype(np.int32)], -1, (0, 255, 0), 2)
+
+        # Extract the card name
+        extracted_text = extract_name(card_img, card_names)
+
+        if extracted_text:
+            debug_info['extracted_text'] = extracted_text
+            # Look up the card in the database
+            card_info = lookup_card_in_db(extracted_text)
+
+            if card_info:
+                debug_info['card_found_in_db'] = True
+                # Display the card name on the frame
+                cv2.putText(display_frame, f"Card: {extracted_text}", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+                # Display a small version of the warped card
+                h, w = display_frame.shape[:2]
+                small_card = cv2.resize(card_img, (w//4, h//4))
+                display_frame[0:small_card.shape[0], 0:small_card.shape[1]] = small_card
+
+                return display_frame, card_info, extracted_text, debug_info
+            else:
+                debug_info['card_found_in_db'] = False
+                # Display the extracted text on the frame
+                cv2.putText(display_frame, f"Text: {extracted_text} (Not found in DB)", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                return display_frame, None, extracted_text, debug_info
+        else:
+            # Display a message on the frame
+            cv2.putText(display_frame, "Card detected, but text extraction failed", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            return display_frame, None, None, debug_info
+    else:
+        # Display a message on the frame
+        cv2.putText(display_frame, "No card detected", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        return display_frame, None, None, debug_info
+
+# Global variables for thread safety
+output_frame = None
+card_info = None
+extracted_text = None
+debug_info = None
+lock = threading.Lock()
+
+def camera_stream(card_names):
+    """
+    Continuously process frames from the camera.
+    Updates global variables output_frame, card_info, extracted_text, and debug_info.
+    """
+    global output_frame, card_info, extracted_text, debug_info
+
+    # Initialize camera
+    cap = cv2.VideoCapture(0)
+
+    # Set camera properties for better quality
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+    while True:
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+
+        if not ret:
+            print("Failed to grab frame")
+            break
+
+        # Process the frame
+        processed_frame, info, text, debug = process_frame(frame, card_names)
+
+        # Update the global variables
+        with lock:
+            output_frame = processed_frame.copy()
+            card_info = info
+            extracted_text = text
+            debug_info = debug
+
+    # Release the capture when done
+    cap.release()
+
+def get_extracted_text():
+    """
+    Returns the current extracted text.
+    """
+    global extracted_text, lock
+
+    with lock:
+        return extracted_text
+
+def get_frame():
+    """
+    Returns the current processed frame as a JPEG byte array.
+    """
+    global output_frame, lock
+
+    with lock:
+        if output_frame is None:
+            return None
+
+        # Encode the frame as JPEG
+        (flag, encodedImage) = cv2.imencode(".jpg", output_frame)
+
+        if not flag:
+            return None
+
+        return bytearray(encodedImage)
+
+def get_card_info():
+    """
+    Returns the current card info.
+    """
+    global card_info, lock
+
+    with lock:
+        return card_info
+
+def visualize_edges(frame):
+    """
+    Visualizes the edge detection process.
+    Returns a frame with the edges highlighted.
+    """
+    # Convert to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # Apply Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+
+    # Edge detection
+    edges = cv2.Canny(blurred, 30, 100)
+
+    # Convert edges to BGR for visualization
+    edges_bgr = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+
+    # Create a side-by-side visualization
+    h, w = frame.shape[:2]
+    vis_frame = np.zeros((h, w*2, 3), dtype=np.uint8)
+    vis_frame[:, :w] = frame
+    vis_frame[:, w:] = edges_bgr
+
+    # Add labels
+    cv2.putText(vis_frame, "Original", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    cv2.putText(vis_frame, "Edges", (w+10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+    return vis_frame
+
 def fetch_and_cache_lorcana_sets():
     try:
         logging.info("Fetching sets from Lorcast...")
