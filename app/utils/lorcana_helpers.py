@@ -43,7 +43,7 @@ def get_card_names_from_db():
         return []
 
 
-def detect_card(frame, debug=True):
+def detect_card(frame, debug=True, min_area=10000, canny_low=30, canny_high=100, epsilon=0.15):
     """
     Detects a card in the frame and returns a perspective-corrected image.
     Optimized for cards with rounded corners.
@@ -65,10 +65,12 @@ def detect_card(frame, debug=True):
     blurred = cv2.GaussianBlur(eroded, (5, 5), 0)
 
     # Edge detection with adjusted thresholds
-    edges = cv2.Canny(blurred, 30, 120)
+    edges = cv2.Canny(blurred, canny_low, canny_high)
 
     # Find contours
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    min_area = 10000  # Adjust as needed for your image size
+    contours = [c for c in contours if cv2.contourArea(c) > min_area]
     print(f"Found {len(contours)} contours")
 
     # Draw all contours on debug frame
@@ -80,18 +82,20 @@ def detect_card(frame, debug=True):
 
     # Try both approaches: quadrilateral detection and aspect ratio
     for i, contour in enumerate(contours[:10]):
-        # APPROACH 1: Try to find a quadrilateral
         peri = cv2.arcLength(contour, True)
-        # Use a larger epsilon for rounded corners
-        approx = cv2.approxPolyDP(contour, 0.08 * peri, True)
+        approx = cv2.approxPolyDP(contour, epsilon * peri, True) # Try 0.15 or higher
         area = cv2.contourArea(approx)
-
         print(f"Contour {i+1}: vertices={len(approx)}, area={area}")
 
+        if debug:
+            for pt in approx:
+                cv2.circle(debug_frame, tuple(pt[0]), 5, (0, 255, 255), -1)
+
         if len(approx) == 4 and area > shared_state.area_threshold:
-            print(f"Found a quadrilateral with sufficient area: {area}")
-            if debug:
-                cv2.drawContours(debug_frame, [approx], -1, (0, 0, 255), 3)
+            # ... (rest unchanged)
+            x, y, w, h = cv2.boundingRect(contour)
+            aspect_ratio = float(w) / h
+            print(f"Bounding rect aspect_ratio={aspect_ratio}, area={cv2.contourArea(contour)}")
 
             # Process the quadrilateral...
             pts = approx.reshape(4, 2)
@@ -107,14 +111,14 @@ def detect_card(frame, debug=True):
             M = cv2.getPerspectiveTransform(pts.astype(np.float32), dst_pts)
             warped = cv2.warpPerspective(frame, M, (w, h))
 
-            return warped, pts, debug_frame
+            return warped, pts, None, debug_frame
 
         # APPROACH 2: Check aspect ratio if not a quadrilateral
         x, y, w, h = cv2.boundingRect(contour)
         aspect_ratio = float(w) / h
 
         # Lorcana cards have aspect ratio around 0.71
-        if 0.65 <= aspect_ratio <= 0.78 and cv2.contourArea(contour) > shared_state.area_threshold:
+        if 0.60 <= aspect_ratio <= 0.80 and cv2.contourArea(contour) > shared_state.area_threshold:
             print(f"Found a card-like contour: aspect_ratio={aspect_ratio}, area={cv2.contourArea(contour)}")
 
             # Create a rectangle for the card
@@ -130,7 +134,7 @@ def detect_card(frame, debug=True):
             M = cv2.getPerspectiveTransform(pts.astype(np.float32), dst_pts)
             warped = cv2.warpPerspective(frame, M, (w_card, h_card))
 
-            return warped, pts, debug_frame
+            return warped, pts, None, debug_frame
         else:
             # Draw this contour in blue on debug frame
             if debug:
@@ -138,7 +142,7 @@ def detect_card(frame, debug=True):
 
     # If we get here, no card was detected
     print("No card detected")
-    return None, None, debug_frame
+    return None, None, None, debug_frame
 
 def extract_name(card_img, card_names):
     """
@@ -235,7 +239,7 @@ def process_frame(frame, card_names):
     display_frame = frame.copy()
 
     # Detect card in the frame
-    card_img, corners, debug_frame = detect_card(frame)
+    card_img, corners, _, debug_frame = detect_card(frame)
 
     debug_info = {
         'card_detected': False,
@@ -295,41 +299,6 @@ card_info = None
 extracted_text = None
 debug_info = None
 lock = threading.Lock()
-
-def camera_stream(card_names):
-    """
-    Continuously process frames from the camera.
-    Updates global variables output_frame, card_info, extracted_text, and debug_info.
-    """
-    global output_frame, card_info, extracted_text, debug_info
-
-    # Initialize camera
-    cap = cv2.VideoCapture(0)
-
-    # Set camera properties for better quality
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-
-    while True:
-        # Capture frame-by-frame
-        ret, frame = cap.read()
-
-        if not ret:
-            print("Failed to grab frame")
-            break
-
-        # Process the frame
-        processed_frame, info, text, debug = process_frame(frame, card_names)
-
-        # Update the global variables
-        with lock:
-            output_frame = processed_frame.copy()
-            card_info = info
-            extracted_text = text
-            debug_info = debug
-
-    # Release the capture when done
-    cap.release()
 
 def get_extracted_text():
     """

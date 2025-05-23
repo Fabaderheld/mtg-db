@@ -19,6 +19,7 @@ from ..utils.lorcana_helpers import (
     fetch_and_cache_lorcana_cards,
     #fetch_and_cache_lorcana_mana_icons,
     #fetch_lorcana_reprints
+    detect_card
 )
 from ..utils import shared_state
 
@@ -26,8 +27,9 @@ from flask import Blueprint, render_template, Response, jsonify
 import threading
 import logging
 from app.utils.lorcana_helpers import (
-    get_card_names_from_db, camera_stream, get_frame, get_card_info, get_extracted_text, get_debug_info
+    get_card_names_from_db, get_frame, get_card_info, get_extracted_text, get_debug_info
 )
+from ..utils.lorcana_helpers import process_frame
 
 import base64
 import numpy as np
@@ -39,19 +41,6 @@ lorcana_bp = Blueprint('lorcana', __name__, url_prefix='/lorcana')
 
 # Get card names from the database
 card_names = []
-
-# Start the camera stream in a separate thread when the blueprint is registered
-@lorcana_bp.before_app_request
-def start_camera_thread():
-    global card_names
-    # Get card names from the database
-    card_names = get_card_names_from_db()
-    logging.info(f"Loaded {len(card_names)} card names from the database")
-
-    # Start the camera stream
-    t = threading.Thread(target=camera_stream, args=(card_names,))
-    t.daemon = True
-    t.start()
 
 @lorcana_bp.route('/camera')
 def camera_import():
@@ -125,22 +114,55 @@ def toggle_edges():
 
 @lorcana_bp.route('/process_frame_route', methods=['POST'])
 def process_frame_route():
+    # Get data from request
     data = request.get_json()
-    image_data = data['image']
-    # Remove the header of the base64 string
-    image_data = image_data.split(',')[1]
+    image_data = data['image'].split(',')[1]
     decoded_data = base64.b64decode(image_data)
     np_data = np.frombuffer(decoded_data, np.uint8)
     frame = cv2.imdecode(np_data, cv2.IMREAD_COLOR)
 
-    # Process the frame (with debug visualization)
-    processed_frame, info, text, debug = process_frame(frame, card_names)
+    # Get parameters from request, with defaults
+    min_area = data.get('min_area', 10000)
+    canny_low = data.get('canny_low', 50)
+    canny_high = data.get('canny_high', 150)
+    epsilon = data.get('epsilon', 0.15)
 
-    # Encode the processed frame to base64
-    _, buffer = cv2.imencode('.jpg', processed_frame)
-    processed_image_base64 = base64.b64encode(buffer).decode('utf-8')
+    # Get card names for recognition
+    card_names = get_card_names_from_db()
 
-    return jsonify({'processed_image': f'data:image/jpeg;base64,{processed_image_base64}'})
+    # Process the frame
+    processed_frame, info, text, debug_info = process_frame(frame, card_names)
+
+    # Make sure everything is JSON serializable
+    def make_json_safe(obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, dict):
+            return {k: make_json_safe(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [make_json_safe(i) for i in obj]
+        return obj
+
+    # Apply the fix to all potentially non-serializable objects
+    info = make_json_safe(info)
+    debug_info = make_json_safe(debug_info)
+
+    # Encode the processed frame
+    if processed_frame is not None:
+        _, buffer = cv2.imencode('.jpg', processed_frame)
+        processed_image_base64 = base64.b64encode(buffer).decode('utf-8')
+    else:
+        # If no processed frame, use the debug frame
+        _, buffer = cv2.imencode('.jpg', debug_info.get('debug_frame', frame))
+        processed_image_base64 = base64.b64encode(buffer).decode('utf-8')
+
+    # Return the response
+    return jsonify({
+        'processed_image': f'data:image/jpeg;base64,{processed_image_base64}',
+        'card_info': info,
+        'extracted_text': text,
+        'debug_info': debug_info
+    })
 
 @lorcana_bp.route("/")
 def index():
