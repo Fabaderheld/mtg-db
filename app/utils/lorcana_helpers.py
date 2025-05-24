@@ -1,10 +1,19 @@
+# Standard library imports
 import json
 import logging
 import os
 import time
+import threading
+
+# Third-party imports
+import cv2
+import numpy as np
+import pytesseract
 import requests
 from flask import current_app
+from rapidfuzz import process, fuzz
 
+# Local application imports
 from ..models import (
     LorcanaCard,
     LorcanaSet,
@@ -13,15 +22,7 @@ from ..models import (
     LorcanaIllustrator,
     db
 )
-
 from ..utils import shared_state
-
-import cv2
-import numpy as np
-import pytesseract
-from rapidfuzz import process, fuzz
-import threading
-import logging
 
 # Global variables for thread safety
 output_frame = None
@@ -48,77 +49,92 @@ def detect_card(frame, debug=True, min_area=10000, canny_low=30, canny_high=100,
     Detects a card in the frame and returns a perspective-corrected image.
     Optimized for cards with rounded corners.
     """
-    from app.utils import shared_state
-
     # Create a copy for debugging visualization
     debug_frame = frame.copy() if debug else None
+    debug_images = {}  # Dictionary to store debug images
 
     # Convert to grayscale
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # Apply morphological operations to enhance corners
-    kernel = np.ones((5,5), np.uint8)
-    dilated = cv2.dilate(gray, kernel, iterations=1)
-    eroded = cv2.erode(dilated, kernel, iterations=1)
-
     # Apply Gaussian blur to reduce noise
-    blurred = cv2.GaussianBlur(eroded, (5, 5), 0)
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
 
     # Edge detection with adjusted thresholds
     edges = cv2.Canny(blurred, canny_low, canny_high)
+    debug_images['edges'] = edges  # Store edges for web display
+
+    # Clean up edges with morphological operations
+    kernel = np.ones((5,5), np.uint8)
+    dilated = cv2.dilate(edges, kernel, iterations=2)
+    eroded = cv2.erode(dilated, kernel, iterations=1)
+    debug_images['processed_edges'] = eroded  # Store processed edges
 
     # Find contours
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    min_area = 10000  # Adjust as needed for your image size
+    contours, _ = cv2.findContours(eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Filter by minimum area
     contours = [c for c in contours if cv2.contourArea(c) > min_area]
     print(f"Found {len(contours)} contours")
 
     # Draw all contours on debug frame
     if debug:
-        cv2.drawContours(debug_frame, contours, -1, (0, 255, 0), 1)
+        contour_frame = frame.copy()
+        cv2.drawContours(contour_frame, contours, -1, (0, 255, 0), 2)
+        debug_images['all_contours'] = contour_frame  # Store instead of showing
 
     # Sort contours by area (largest first)
     contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
-    # Try both approaches: quadrilateral detection and aspect ratio
-    for i, contour in enumerate(contours[:10]):
+    # Find the biggest contour that's likely a card
+    for contour in contours[:5]:  # Check the 5 largest contours
         peri = cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, epsilon * peri, True) # Try 0.15 or higher
-        area = cv2.contourArea(approx)
-        print(f"Contour {i+1}: vertices={len(approx)}, area={area}")
+        approx = cv2.approxPolyDP(contour, epsilon * peri, True)
 
         if debug:
             for pt in approx:
                 cv2.circle(debug_frame, tuple(pt[0]), 5, (0, 255, 255), -1)
 
-        if len(approx) == 4 and area > shared_state.area_threshold:
-            # ... (rest unchanged)
-            x, y, w, h = cv2.boundingRect(contour)
-            aspect_ratio = float(w) / h
-            print(f"Bounding rect aspect_ratio={aspect_ratio}, area={cv2.contourArea(contour)}")
-
-            # Process the quadrilateral...
+        # Check if it's a quadrilateral (4 points)
+        if len(approx) == 4:
+            # Get the corners
             pts = approx.reshape(4, 2)
-            # Sort points...
+
+            # Reorder points to [top-left, top-right, bottom-right, bottom-left]
+            # Sort by y-coordinate (top to bottom)
             pts = pts[np.argsort(pts[:, 1])]
+            # Sort top points by x-coordinate (left to right)
             top = pts[:2][np.argsort(pts[:2, 0])]
+            # Sort bottom points by x-coordinate (left to right)
             bottom = pts[2:][np.argsort(pts[2:, 0])]
+            # Combine points in the correct order
             pts = np.vstack([top, bottom[::-1]])
 
-            # Perspective transform...
-            w, h = 421, 588
-            dst_pts = np.array([[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float32)
-            M = cv2.getPerspectiveTransform(pts.astype(np.float32), dst_pts)
-            warped = cv2.warpPerspective(frame, M, (w, h))
+            # Check aspect ratio
+            x, y, w, h = cv2.boundingRect(contour)
+            aspect_ratio = float(w) / h
+            print(f"Quadrilateral found: aspect_ratio={aspect_ratio}, area={cv2.contourArea(contour)}")
 
-            return warped, pts, None, debug_frame
+            # Lorcana cards have aspect ratio around 0.71
+            if 0.60 <= aspect_ratio <= 0.80:
+                if debug:
+                    cv2.drawContours(debug_frame, [approx], -1, (0, 0, 255), 3)
 
-        # APPROACH 2: Check aspect ratio if not a quadrilateral
+                # Perspective transform
+                w_card, h_card = 421, 588  # Standard card dimensions
+                dst_pts = np.array([[0, 0], [w_card, 0], [w_card, h_card], [0, h_card]], dtype=np.float32)
+                M = cv2.getPerspectiveTransform(pts.astype(np.float32), dst_pts)
+                warped = cv2.warpPerspective(frame, M, (w_card, h_card))
+                debug_images['warped'] = warped  # Store warped image
+
+                return warped, pts, edges, debug_frame, debug_images
+
+    # If no suitable quadrilateral is found, try the bounding rectangle approach
+    for contour in contours[:5]:
         x, y, w, h = cv2.boundingRect(contour)
         aspect_ratio = float(w) / h
 
-        # Lorcana cards have aspect ratio around 0.71
-        if 0.60 <= aspect_ratio <= 0.80 and cv2.contourArea(contour) > shared_state.area_threshold:
+        # Check if the aspect ratio matches a card
+        if 0.60 <= aspect_ratio <= 0.80 and cv2.contourArea(contour) > min_area:
             print(f"Found a card-like contour: aspect_ratio={aspect_ratio}, area={cv2.contourArea(contour)}")
 
             # Create a rectangle for the card
@@ -133,28 +149,41 @@ def detect_card(frame, debug=True, min_area=10000, canny_low=30, canny_high=100,
             dst_pts = np.array([[0, 0], [w_card, 0], [w_card, h_card], [0, h_card]], dtype=np.float32)
             M = cv2.getPerspectiveTransform(pts.astype(np.float32), dst_pts)
             warped = cv2.warpPerspective(frame, M, (w_card, h_card))
+            debug_images['warped'] = warped  # Store warped image
 
-            return warped, pts, None, debug_frame
-        else:
-            # Draw this contour in blue on debug frame
-            if debug:
-                cv2.drawContours(debug_frame, [approx], -1, (255, 0, 0), 2)
+            return warped, pts, edges, debug_frame, debug_images
 
     # If we get here, no card was detected
     print("No card detected")
-    return None, None, None, debug_frame
+    return None, None, edges, debug_frame, debug_images
 
-def extract_name(card_img, card_names):
+def extract_card_text(warped_card, debug=True):
     """
-    Extract the card name using OCR and fuzzy matching.
+    Extract text from a warped card image using OCR.
+
+    Args:
+        warped_card: The perspective-corrected card image
+        debug: Whether to show debug information
+
+    Returns:
+        text: The extracted text
+        debug_info: Dictionary containing debug information and images
     """
+    if warped_card is None:
+        return None, {"error": "No card image provided"}
+
+    debug_info = {}
+
     # Define the region of interest for the card name
-    # These coordinates need to be adjusted for Lorcana cards
     y_start, y_end = 30, 80
     x_start, x_end = 40, 380
 
     # Crop the name region
-    name_region = card_img[y_start:y_end, x_start:x_end]
+    try:
+        name_region = warped_card[y_start:y_end, x_start:x_end]
+        debug_info["card_img"] = warped_card
+    except:
+        return None, {"error": "Failed to crop name region"}
 
     # Convert to grayscale
     gray = cv2.cvtColor(name_region, cv2.COLOR_BGR2GRAY)
@@ -162,26 +191,78 @@ def extract_name(card_img, card_names):
     # Apply thresholding to improve OCR
     _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
 
+    # Store debug images in the debug_info dictionary instead of showing them
+    debug_info["name_region_img"] = name_region
+    debug_info["threshold_img"] = thresh
+    debug_info["ocr_input_img"] = thresh
+
     # Use Tesseract to extract text
-    text = pytesseract.image_to_string(thresh, config='--psm 7 -l eng')
+    try:
+        import pytesseract
+        text = pytesseract.image_to_string(thresh, config='--psm 7 -l eng')
+        text = text.strip()
+        debug_info["raw_text"] = text
+        return text, debug_info
+    except Exception as e:
+        print(f"OCR error: {e}")
+        debug_info["error"] = f"OCR error: {e}"
+        return None, debug_info
 
-    # Clean up the text
-    text = text.strip()
 
-    # Fuzzy match against known card names
-    if text:
-        best_match, score, _ = process.extractOne(text, card_names, scorer=fuzz.WRatio)
-        if score > 60:  # Adjust threshold as needed
-            return best_match
+def match_card(warped_card, reference_cards, debug=True):
+    """
+    Match a warped card image against a set of reference card images.
 
-    return None
+    Args:
+        warped_card: The perspective-corrected card image
+        reference_cards: Dictionary of {card_name: card_image}
+        debug: Whether to show debug information
+
+    Returns:
+        best_match: Name of the best matching card
+        score: Similarity score of the best match
+        debug_info: Dictionary containing debug information
+    """
+    if warped_card is None:
+        return None, 0, {"error": "No card image provided"}
+
+    debug_info = {}
+
+    # Convert the warped card to grayscale
+    gray_card = cv2.cvtColor(warped_card, cv2.COLOR_BGR2GRAY)
+
+    best_match = None
+    best_score = 0
+
+    # Compare with each reference card
+    for card_name, ref_img in reference_cards.items():
+        # Resize reference image to match warped card
+        ref_img = cv2.resize(ref_img, (warped_card.shape[1], warped_card.shape[0]))
+
+        # Convert reference image to grayscale
+        gray_ref = cv2.cvtColor(ref_img, cv2.COLOR_BGR2GRAY)
+
+        # Calculate structural similarity
+        from skimage.metrics import structural_similarity as ssim
+        score, _ = ssim(gray_card, gray_ref, full=True)
+
+        if score > best_score:
+            best_score = score
+            best_match = card_name
+
+    debug_info["best_match"] = best_match
+    debug_info["match_score"] = best_score
+
+    if debug:
+        print(f"Best match: {best_match} with score {best_score}")
+
+    return best_match, best_score, debug_info
 
 def lookup_card_in_db(name):
     """
     Look up a card by name in the database.
     """
     from app.models import LorcanaCard  # Import here to avoid circular imports
-    from app.routes.lorcana import fetch_and_cache_lorcana_cards  # Import your existing function
 
     try:
         # Try to find the card in the database first
@@ -222,76 +303,53 @@ def get_debug_info():
     with lock:
         return debug_info
 
-def process_frame(frame, card_names):
+def process_frame(frame, card_names=None, debug=True):
     """
-    Process a frame to detect and recognize a Lorcana card.
-    Returns the processed frame, card info, extracted text, and debug info.
+    Process a frame to detect a card, extract text, and optionally match against reference cards.
+
+    Args:
+        frame: The input frame/image
+        card_names: List of card names for fuzzy matching (optional)
+        debug: Whether to show debug information
+
+    Returns:
+        processed_frame: The processed frame with annotations
+        card_info: Dictionary containing card information
+        extracted_text: The extracted text
+        debug_info: Dictionary containing debug information
     """
-    # Import shared state
-    from app.utils import shared_state
+    debug_info = {}
 
-    # Check if edge visualization is enabled
-    if shared_state.show_edges:
-        display_frame = visualize_edges(frame)
-        return display_frame, None, None, {'card_detected': False}
+    # Step 1: Detect and warp the card
+    warped_card, card_corners, edges, debug_frame, debug_images = detect_card(frame, debug=debug)
+    debug_info["debug_frame"] = debug_frame
+    debug_info["edges"] = edges
 
-    # Make a copy of the frame for drawing
-    display_frame = frame.copy()
+    if warped_card is None:
+        return frame, {}, None, debug_info
 
-    # Detect card in the frame
-    card_img, corners, _, debug_frame = detect_card(frame)
+    # Step 2: Extract text from the card
+    extracted_text, text_debug_info = extract_card_text(warped_card, debug=debug)
+    debug_info.update(text_debug_info)
 
-    debug_info = {
-        'card_detected': False,
-        'extracted_text': None,
-        'card_found_in_db': False
-    }
+    # Step 3: Match the card against reference cards (if available)
+    card_info = {}
+    if extracted_text and card_names:
+        from fuzzywuzzy import process, fuzz
+        match, score, _ = process.extractOne(extracted_text, card_names, scorer=fuzz.WRatio)
+        if score > 60:  # Adjust threshold as needed
+            card_info["name"] = match
+            card_info["match_score"] = score
 
-    # Use the debug frame as the display frame
-    display_frame = debug_frame
-
-    if card_img is not None:
-        debug_info['card_detected'] = True
-        # Draw the contour of the detected card
-        if corners is not None:
-            cv2.drawContours(display_frame, [corners.astype(np.int32)], -1, (0, 255, 0), 2)
-
-        # Extract the card name
-        extracted_text = extract_name(card_img, card_names)
-
+    # Annotate the processed frame
+    processed_frame = frame.copy()
+    if card_corners is not None:
+        cv2.drawContours(processed_frame, [card_corners.reshape(-1, 1, 2)], -1, (0, 255, 0), 3)
         if extracted_text:
-            debug_info['extracted_text'] = extracted_text
-            # Look up the card in the database
-            card_info = lookup_card_in_db(extracted_text)
-
-            if card_info:
-                debug_info['card_found_in_db'] = True
-                # Display the card name on the frame
-                cv2.putText(display_frame, f"Card: {extracted_text}", (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
-                # Display a small version of the warped card
-                h, w = display_frame.shape[:2]
-                small_card = cv2.resize(card_img, (w//4, h//4))
-                display_frame[0:small_card.shape[0], 0:small_card.shape[1]] = small_card
-
-                return display_frame, card_info, extracted_text, debug_info
-            else:
-                debug_info['card_found_in_db'] = False
-                # Display the extracted text on the frame
-                cv2.putText(display_frame, f"Text: {extracted_text} (Not found in DB)", (10, 30),
+            cv2.putText(processed_frame, extracted_text, (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                return display_frame, None, extracted_text, debug_info
-        else:
-            # Display a message on the frame
-            cv2.putText(display_frame, "Card detected, but text extraction failed", (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-            return display_frame, None, None, debug_info
-    else:
-        # Display a message on the frame
-        cv2.putText(display_frame, "No card detected", (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-        return display_frame, None, None, debug_info
+
+    return processed_frame, card_info, extracted_text, debug_info
 
 # Global variables for thread safety
 output_frame = None

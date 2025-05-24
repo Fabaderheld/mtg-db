@@ -4,16 +4,73 @@
 <head>
     <title>Lorcana Card Recognition - Camera Import</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Additional styles */
+        .video-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        #camera-feed,
+        #processed-frame {
+            width: 100%;
+            max-width: 640px;
+            border: 1px solid #ddd;
+        }
+
+        .card-container img,
+        #ocr-input-image {
+            border: 1px solid #ddd;
+            margin-top: 10px;
+            display: none;
+            /* Hide by default */
+        }
+
+        .error-message {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+
+        .controls label {
+            display: block;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 
 <body>
     <div class="container">
         <h1>Lorcana Card Recognition - Camera Import</h1>
 
+        <div id="error-container" style="display: none;" class="error-message"></div>
+
         <div class="video-container">
             <video id="camera-feed" autoplay playsinline></video>
             <canvas id="canvas" style="display:none;"></canvas>
-            <img id="processed-frame" alt="Processed Frame">
+            <img id="processed-frame" alt="Processed Frame" style="display:none;">
+        </div>
+
+        <div class="controls" style="font-size:1.2em;">
+            <label>Min Area:
+                <input type="range" id="min-area" min="100" max="50000" value="10000" step="100">
+                <span id="min-area-value">10000</span>
+            </label>
+            <label>Canny Low:
+                <input type="range" id="canny-low" min="0" max="255" value="50" step="1">
+                <span id="canny-low-value">50</span>
+            </label>
+            <label>Canny High:
+                <input type="range" id="canny-high" min="0" max="255" value="150" step="1">
+                <span id="canny-high-value">150</span>
+            </label>
+            <label>Epsilon:
+                <input type="range" id="epsilon" min="1" max="30" value="15" step="1">
+                <span id="epsilon-value">0.15</span>
+            </label>
         </div>
 
         <div class="card-info">
@@ -21,131 +78,247 @@
             <div id="info-content">No card detected</div>
         </div>
 
-        <div class="debug-info">
-            <h2>Debug Information</h2>
-            <div id="debug-content">No debug info</div>
+        <div class="card-container">
+            <h3>Detected Card</h3>
+            <img id="warped-card-image" alt="Detected Card" style="max-width: 300px; display: none;">
+            <div id="extracted-text" class="mt-2">No text extracted</div>
         </div>
 
-        <div class="controls" style="font-size:1.2em;">
-            <label>Min Area:
-                <input type="range" id="min-area" min="100" max="50000" value="10000" step="100">
-                <span id="min-area-value">10000</span>
-            </label><br>
-            <label>Canny Low:
-                <input type="range" id="canny-low" min="0" max="255" value="50" step="1">
-                <span id="canny-low-value">30</span>
-            </label><br>
-            <label>Canny High:
-                <input type="range" id="canny-high" min="0" max="255" value="150" step="1">
-                <span id="canny-high-value">100</span>
-            </label><br>
-            <label>Epsilon:
-                <input type="range" id="epsilon" min="0.01" max="0.3" value="0.15" step="0.01">
-                <span id="epsilon-value">0.15</span>
-            </label>
+        <div class="debug-info">
+            <h3>OCR Input (Thresholded)</h3>
+            <img id="ocr-input-image" alt="OCR Input" style="max-width: 300px; display: none;">
+            <div id="debug-content">No debug info</div>
         </div>
     </div>
 
     <script>
+        // DOM elements
         const video = document.getElementById('camera-feed');
         const canvas = document.getElementById('canvas');
         const processedFrame = document.getElementById('processed-frame');
+        const warpedCardImage = document.getElementById('warped-card-image');
+        const ocrInputImage = document.getElementById('ocr-input-image');
+        const extractedText = document.getElementById('extracted-text');
+        const infoContent = document.getElementById('info-content');
+        const debugContent = document.getElementById('debug-content');
+        const errorContainer = document.getElementById('error-container');
         const ctx = canvas.getContext('2d');
 
+        // Processing interval ID (for clearing)
+        let processingInterval = null;
+
+        // Update slider value displays
         ['min-area', 'canny-low', 'canny-high', 'epsilon'].forEach(id => {
             const slider = document.getElementById(id);
             const label = document.getElementById(id + '-value');
-            slider.addEventListener('input', () => {
+
+            // Set initial values
+            if (id === 'epsilon') {
+                label.textContent = (slider.value / 100).toFixed(2);
+            } else {
                 label.textContent = slider.value;
+            }
+
+            // Update on change
+            slider.addEventListener('input', () => {
+                if (id === 'epsilon') {
+                    label.textContent = (slider.value / 100).toFixed(2);
+                } else {
+                    label.textContent = slider.value;
+                }
             });
         });
 
-        let lastCardInfo = null;
-        let lastDebugInfo = null;
-
-        function updateInfo(data) {
-            if (data.card_info && data.card_info.name) {
-                lastCardInfo = data.card_info;
-                // ... build and display card info HTML ...
-            }
-            if (data.debug_info) {
-                lastDebugInfo = data.debug_info;
-                // ... build and display debug info HTML ...
-            }
-            // If no card detected, do not overwrite the display
-            if (!data.card_info || !data.card_info.name) {
-                // Optionally, show a subtle "No card detected" message somewhere else
-            }
+        // Show error message
+        function showError(message) {
+            errorContainer.textContent = message;
+            errorContainer.style.display = 'block';
         }
 
+        // Hide error message
+        function hideError() {
+            errorContainer.style.display = 'none';
+        }
+
+        // Start camera
         async function startCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}});
+                hideError();
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: "environment",
+                        width: {ideal: 1280},
+                        height: {ideal: 720}
+                    }
+                });
+
                 video.srcObject = stream;
+                video.style.display = 'block';
+
                 video.addEventListener('loadedmetadata', () => {
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
-                    setInterval(sendFrameToServer, 500);
+
+                    // Clear any existing interval
+                    if (processingInterval) {
+                        clearInterval(processingInterval);
+                    }
+
+                    // Start processing frames
+                    processingInterval = setInterval(sendFrameToServer, 500);
                 });
             } catch (err) {
                 console.error("Error accessing camera:", err);
-                alert("Unable to access camera. Please check permissions and ensure HTTPS.");
+                showError("Unable to access camera. Please check permissions and ensure HTTPS is enabled.");
+
+                // Show fallback message for common errors
+                if (err.name === 'NotAllowedError') {
+                    showError("Camera access denied. Please allow camera access in your browser settings.");
+                } else if (err.name === 'NotFoundError') {
+                    showError("No camera found. Please connect a camera and try again.");
+                }
             }
         }
 
+        // Send frame to server for processing
         async function sendFrameToServer() {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            try {
+                // Draw video frame to canvas
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
 
-            // Get parameter values from the inputs
-            const minArea = parseInt(document.getElementById('min-area').value, 10);
-            const cannyLow = parseInt(document.getElementById('canny-low').value, 10);
-            const cannyHigh = parseInt(document.getElementById('canny-high').value, 10);
-            const epsilon = parseFloat(document.getElementById('epsilon').value);
+                // Get parameter values
+                const minArea = parseInt(document.getElementById('min-area').value, 10);
+                const cannyLow = parseInt(document.getElementById('canny-low').value, 10);
+                const cannyHigh = parseInt(document.getElementById('canny-high').value, 10);
+                const epsilon = parseInt(document.getElementById('epsilon').value, 10) / 100; // Convert to decimal
 
-            const response = await fetch('{{ url_for("lorcana.process_frame_route") }}', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    image: imageData,
-                    min_area: minArea,
-                    canny_low: cannyLow,
-                    canny_high: cannyHigh,
-                    epsilon: epsilon
-                })
-            });
+                // Send to server
+                const response = await fetch('{{ url_for("lorcana.process_frame_route") }}', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        image: imageData,
+                        min_area: minArea,
+                        canny_low: cannyLow,
+                        canny_high: cannyHigh,
+                        epsilon: epsilon
+                    })
+                });
 
-            const data = await response.json();
-            document.getElementById('processed-frame').src = data.processed_image;
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
 
-            // Show card info if available
+                const data = await response.json();
+                handleServerResponse(data);
+                hideError();
+            } catch (err) {
+                console.error("Error processing frame:", err);
+                showError(`Error processing frame: ${err.message}`);
+            }
+        }
+
+        // Handle server response
+        function handleServerResponse(data) {
+            // Update processed frame
+            if (data.processed_image) {
+                processedFrame.src = data.processed_image;
+                processedFrame.style.display = 'block';
+                video.style.display = 'none'; // Hide video when showing processed frame
+            } else {
+                processedFrame.style.display = 'none';
+                video.style.display = 'block';
+            }
+
+            // Update warped card image
+            if (data.warped_image) {
+                warpedCardImage.src = data.warped_image;
+                warpedCardImage.style.display = 'block';
+            } else {
+                warpedCardImage.style.display = 'none';
+            }
+
+            // Update OCR input image
+            if (data.ocr_input_image) {
+                ocrInputImage.src = data.ocr_input_image;
+                ocrInputImage.style.display = 'block';
+            } else {
+                ocrInputImage.style.display = 'none';
+            }
+
+            // Update extracted text
+            if (data.extracted_text) {
+                extractedText.textContent = 'Extracted Text: ' + data.extracted_text;
+            } else {
+                extractedText.textContent = 'No text extracted';
+            }
+
+            // Update card info
             let cardHtml = '';
             if (data.card_info && data.card_info.name) {
                 cardHtml = `
-        <div>
-            <strong>Name:</strong> ${data.card_info.name}<br>
-            <strong>Set:</strong> ${data.card_info.set || ''}<br>
-            <strong>Type:</strong> ${data.card_info.type || ''}<br>
-            <strong>Ink:</strong> ${data.card_info.ink || ''}<br>
-            <strong>Cost:</strong> ${data.card_info.cost || ''}<br>
-            <strong>Strength:</strong> ${data.card_info.strength || ''}<br>
-            <strong>Willpower:</strong> ${data.card_info.willpower || ''}<br>
-            <strong>Rarity:</strong> ${data.card_info.rarity || ''}<br>
-            <strong>Text:</strong> ${data.card_info.text || ''}<br>
-        </div>
-    `;
+                    <div>
+                        <strong>Name:</strong> ${data.card_info.name}<br>
+                        <strong>Set:</strong> ${data.card_info.set || ''}<br>
+                        <strong>Type:</strong> ${data.card_info.type || ''}<br>
+                        <strong>Ink:</strong> ${data.card_info.ink || ''}<br>
+                        <strong>Cost:</strong> ${data.card_info.cost || ''}<br>
+                        <strong>Strength:</strong> ${data.card_info.strength || ''}<br>
+                        <strong>Willpower:</strong> ${data.card_info.willpower || ''}<br>
+                        <strong>Rarity:</strong> ${data.card_info.rarity || ''}<br>
+                        <strong>Text:</strong> ${data.card_info.text || ''}<br>
+                    </div>
+                `;
             } else {
                 cardHtml = 'No card detected';
             }
-            document.getElementById('info-content').innerHTML = cardHtml;
+            infoContent.innerHTML = cardHtml;
 
-            // (Optional) Show extracted text or debug info
-            if (data.extracted_text) {
-                document.getElementById('debug-content').innerText = data.extracted_text;
+            // Update debug info
+            if (data.debug_info) {
+                let debugHtml = '<pre>';
+                // Filter out image data from debug_info to avoid huge HTML
+                const filteredDebugInfo = {};
+                for (const [key, value] of Object.entries(data.debug_info)) {
+                    if (typeof value === 'object' && value !== null) {
+                        if (Array.isArray(value) && value.length > 100) {
+                            filteredDebugInfo[key] = `[Array with ${value.length} items]`;
+                        } else if (!Array.isArray(value) && Object.keys(value).length > 20) {
+                            filteredDebugInfo[key] = `[Object with ${Object.keys(value).length} properties]`;
+                        } else {
+                            filteredDebugInfo[key] = value;
+                        }
+                    } else if (typeof value !== 'string' || !value.startsWith('data:image')) {
+                        filteredDebugInfo[key] = value;
+                    }
+                }
+                debugHtml += JSON.stringify(filteredDebugInfo, null, 2);
+                debugHtml += '</pre>';
+                debugContent.innerHTML = debugHtml;
+            } else {
+                debugContent.textContent = 'No debug info';
             }
         }
 
-        startCamera();
+        // Start the camera when page loads
+        document.addEventListener('DOMContentLoaded', startCamera);
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                // Page is visible again, restart camera if needed
+                if (!video.srcObject) {
+                    startCamera();
+                }
+            } else {
+                // Page is hidden, stop processing to save resources
+                if (processingInterval) {
+                    clearInterval(processingInterval);
+                    processingInterval = null;
+                }
+            }
+        });
     </script>
 </body>
 

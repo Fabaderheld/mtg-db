@@ -1,8 +1,14 @@
-# app/lorcana/routes.py
+# Standard library imports
+import base64
 import csv
 import logging
+import threading
+import time
 from io import StringIO
 
+# Third-party imports
+import cv2
+import numpy as np
 from flask import (
     Blueprint,
     flash,
@@ -10,31 +16,24 @@ from flask import (
     redirect,
     render_template,
     request,
-    url_for
+    url_for,
+    Response
 )
 
+# Local application imports
 from ..models import LorcanaCard, LorcanaSet, db
+from ..utils import shared_state
 from ..utils.lorcana_helpers import (
     download_lorcana_image,
     fetch_and_cache_lorcana_cards,
-    #fetch_and_cache_lorcana_mana_icons,
-    #fetch_lorcana_reprints
-    detect_card
+    detect_card,
+    process_frame,
+    get_card_names_from_db,
+    get_frame,
+    get_card_info,
+    get_extracted_text,
+    get_debug_info
 )
-from ..utils import shared_state
-
-from flask import Blueprint, render_template, Response, jsonify
-import threading
-import logging
-from app.utils.lorcana_helpers import (
-    get_card_names_from_db, get_frame, get_card_info, get_extracted_text, get_debug_info
-)
-from ..utils.lorcana_helpers import process_frame
-
-import base64
-import numpy as np
-import cv2
-from flask import request, jsonify
 
 # Create a blueprint
 lorcana_bp = Blueprint('lorcana', __name__, url_prefix='/lorcana')
@@ -43,10 +42,9 @@ lorcana_bp = Blueprint('lorcana', __name__, url_prefix='/lorcana')
 card_names = []
 
 @lorcana_bp.route('/camera')
-def camera_import():
-    """
-    Render the camera import page for Lorcana card recognition.
-    """
+def camera_page():
+    """Camera page route."""
+
     return render_template('lorcana/camera_import.html')
 
 def generate():
@@ -60,13 +58,24 @@ def generate():
 
         yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-@lorcana_bp.route('/video_feed')
-def video_feed():
-    """
-    Route for the video feed.
-    """
-    return Response(generate(),
-                    mimetype="multipart/x-mixed-replace; boundary=frame")
+def generate_frames():
+    """Generate frames from the output frame."""
+    global output_frame, lock
+
+    while True:
+        # Acquire the lock, copy the output frame, and release the lock
+        with lock:
+            if output_frame is None:
+                continue
+            frame = output_frame.copy()
+
+        # Encode the frame as JPEG
+        _, jpeg = cv2.imencode('.jpg', frame)
+
+        # Yield the frame in the response
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
+
 
 @lorcana_bp.route('/card_info')
 def card_info():
@@ -147,6 +156,27 @@ def process_frame_route():
     info = make_json_safe(info)
     debug_info = make_json_safe(debug_info)
 
+    # Get the warped card image from the process_frame function
+    # This assumes card_img is available in debug_info or can be extracted from info
+    warped_image = None
+    if 'card_img' in debug_info and debug_info['card_img'] is not None:
+        _, buffer = cv2.imencode('.jpg', debug_info['card_img'])
+        warped_image = f'data:image/jpeg;base64,{base64.b64encode(buffer).decode("utf-8")}'
+
+    # Encode the OCR input image if available
+    ocr_input_image = None
+    if 'ocr_input_img' in debug_info and debug_info['ocr_input_img'] is not None:
+        img = debug_info['ocr_input_img']
+        if isinstance(img, np.ndarray) and img.ndim >= 2:
+            try:
+                _, buffer = cv2.imencode('.jpg', img)
+                ocr_input_image = f'data:image/jpeg;base64,{base64.b64encode(buffer).decode("utf-8")}'
+            except Exception as e:
+                print(f"Error encoding OCR input image: {e}")
+                ocr_input_image = None
+        else:
+            print(f"Invalid OCR input image type: {type(img)}, shape: {getattr(img, 'shape', None)}")
+
     # Encode the processed frame
     if processed_frame is not None:
         _, buffer = cv2.imencode('.jpg', processed_frame)
@@ -159,6 +189,8 @@ def process_frame_route():
     # Return the response
     return jsonify({
         'processed_image': f'data:image/jpeg;base64,{processed_image_base64}',
+        'warped_image': warped_image,  # Add the warped image to the response
+        'ocr_input_image': ocr_input_image,  # Add this line
         'card_info': info,
         'extracted_text': text,
         'debug_info': debug_info
