@@ -137,10 +137,10 @@ def process_frame_route():
     epsilon = data.get('epsilon', 0.15)
 
     # Get OCR region parameters
-    ocr_x_start = data.get('ocr_x_start', 40)
-    ocr_x_end = data.get('ocr_x_end', 380)
-    ocr_y_start = data.get('ocr_y_start', 30)
-    ocr_y_end = data.get('ocr_y_end', 80)
+    ocr_x_start = data.get('ocr_x_start', 0)
+    ocr_x_end = data.get('ocr_x_end', 400)
+    ocr_y_start = data.get('ocr_y_start', 300)
+    ocr_y_end = data.get('ocr_y_end', 400)
 
     # Get card names for recognition
     card_names = get_card_names_from_db()

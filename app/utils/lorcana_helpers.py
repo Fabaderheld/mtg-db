@@ -170,34 +170,36 @@ def extract_card_text(warped_card, ocr_params=None, debug=True):
         text: The extracted text
         debug_info: Dictionary containing debug information and images
     """
-    if warped_card is None:
-        return None, {"error": "No card image provided"}
+    if warped_card is None or warped_card.size == 0:
+        print("Error: warped_card is empty!")
+        return None, {}  # Or handle the error appropriately
 
     debug_info = {}
 
-    # Define the region of interest for the card name
-    # Use provided parameters or defaults
-    if ocr_params is None:
-        ocr_params = {}
+    height, width, _ = warped_card.shape
 
-    x_start = ocr_params.get('x_start', 40)
-    x_end = ocr_params.get('x_end', 380)
-    y_start = ocr_params.get('y_start', 30)
-    y_end = ocr_params.get('y_end', 80)
+    ocr_x_start = ocr_params.get('ocr_x_start', 0)
+    ocr_x_end = ocr_params.get('ocr_x_end', width)
+    ocr_y_start = ocr_params.get('ocr_y_start', 0)
+    ocr_y_end = ocr_params.get('ocr_y_end', height)
 
-    # Crop the name region
-    try:
-        name_region = warped_card[y_start:y_end, x_start:x_end]
-        debug_info["card_img"] = warped_card
+    # Adjust OCR region parameters if they are out of bounds
+    ocr_x_start = max(0, ocr_x_start)
+    ocr_y_start = max(0, ocr_y_start)
+    ocr_x_end = min(width, ocr_x_end)
+    ocr_y_end = min(height, ocr_y_end)
 
-        # Draw rectangle on warped card to show OCR region
-        card_with_rect = warped_card.copy()
-        cv2.rectangle(card_with_rect, (x_start, y_start), (x_end, y_end), (0, 255, 0), 2)
-        debug_info["ocr_region_overlay"] = card_with_rect
-    except:
-        return None, {"error": "Failed to crop name region"}
+    # Ensure start is less than end
+    ocr_x_start = min(ocr_x_start, ocr_x_end)
+    ocr_y_start = min(ocr_y_start, ocr_y_end)
 
-    # Convert to grayscale
+    name_region = warped_card[ocr_y_start:ocr_y_end, ocr_x_start:ocr_x_end]
+
+    if name_region is None or name_region.size == 0:
+        print("Error: name_region is empty!")
+        return None, {}  # Or handle the error appropriately
+
+    gray = cv2.cvtColor(name_region, cv2.COLOR_BGR2GRAY)
     gray = cv2.cvtColor(name_region, cv2.COLOR_BGR2GRAY)
 
     # Apply thresholding to improve OCR
@@ -214,7 +216,7 @@ def extract_card_text(warped_card, ocr_params=None, debug=True):
         # Add this config parameter to avoid writing to disk
         text = pytesseract.image_to_string(
             thresh,
-            config='--psm 7 -l eng --tessdata-dir /usr/share/tesseract-ocr/4.00/tessdata'
+            config='--psm 7 -l eng+deu --tessdata-dir /usr/share/tesseract-ocr/5/tessdata'
         )
         text = text.strip()
         debug_info["raw_text"] = text

@@ -106,6 +106,29 @@
             <img id="ocr-input-image" alt="OCR Input" style="max-width: 300px; display: none;">
             <div id="debug-content">No debug info</div>
         </div>
+        <div class="debug-controls">
+            <label>
+                <input type="checkbox" id="show-edges" checked> Show Edges
+            </label>
+            <label>
+                <input type="checkbox" id="show-processed-edges" checked> Show Processed Edges
+            </label>
+            <label>
+                <input type="checkbox" id="show-all-contours" checked> Show All Contours
+            </label>
+            <label>
+                <input type="checkbox" id="show-warped" checked> Show Warped Card
+            </label>
+            <label>
+                <input type="checkbox" id="show-name-region" checked> Show Name Region
+            </label>
+            <label>
+                <input type="checkbox" id="show-threshold" checked> Show Threshold
+            </label>
+            <label>
+                <input type="checkbox" id="show-ocr-region-overlay" checked> Show OCR Region
+            </label>
+        </div>
         <div class="debug-images">
             <h2>Debug Images</h2>
             <div class="image-grid"
@@ -245,6 +268,7 @@
             }
         }
 
+        // Send frame to server for processing
         async function sendFrameToServer() {
             try {
                 // Draw video frame to canvas
@@ -310,6 +334,7 @@
                 warpedCardImage.style.display = 'block';
             } else {
                 warpedCardImage.style.display = 'none';
+                video.style.display = 'block';
             }
 
             // Update OCR input image
@@ -318,6 +343,7 @@
                 ocrInputImage.style.display = 'block';
             } else {
                 ocrInputImage.style.display = 'none';
+                video.style.display = 'block';
             }
 
             // Update extracted text
@@ -331,23 +357,36 @@
             let cardHtml = '';
             if (data.card_info && data.card_info.name) {
                 cardHtml = `
-                    <div>
-                        <strong>Name:</strong> ${data.card_info.name}<br>
-                        <strong>Set:</strong> ${data.card_info.set || ''}<br>
-                        <strong>Type:</strong> ${data.card_info.type || ''}<br>
-                        <strong>Ink:</strong> ${data.card_info.ink || ''}<br>
-                        <strong>Cost:</strong> ${data.card_info.cost || ''}<br>
-                        <strong>Strength:</strong> ${data.card_info.strength || ''}<br>
-                        <strong>Willpower:</strong> ${data.card_info.willpower || ''}<br>
-                        <strong>Rarity:</strong> ${data.card_info.rarity || ''}<br>
-                        <strong>Text:</strong> ${data.card_info.text || ''}<br>
-                    </div>
-                `;
+            <div>
+                <strong>Name:</strong> ${data.card_info.name}<br>
+                <strong>Set:</strong> ${data.card_info.set || ''}<br>
+                <strong>Type:</strong> ${data.card_info.type || ''}<br>
+                <strong>Ink:</strong> ${data.card_info.ink || ''}<br>
+                <strong>Cost:</strong> ${data.card_info.cost || ''}<br>
+                <strong>Strength:</strong> ${data.card_info.strength || ''}<br>
+                <strong>Willpower:</strong> ${data.card_info.willpower || ''}<br>
+                <strong>Rarity:</strong> ${data.card_info.rarity || ''}<br>
+                <strong>Text:</strong> ${data.card_info.text || ''}<br>
+            </div>
+        `;
             } else {
                 cardHtml = 'No card detected';
             }
             infoContent.innerHTML = cardHtml;
-            // Unified debug image update
+
+            // Update range input values
+            document.getElementById('ocr-x-start').value = data.ocr_x_start;
+            document.getElementById('ocr-x-start-value').textContent = data.ocr_x_start;
+
+            document.getElementById('ocr-x-end').value = data.ocr_x_end;
+            document.getElementById('ocr-x-end-value').textContent = data.ocr_x_end;
+
+            document.getElementById('ocr-y-start').value = data.ocr_y_start;
+            document.getElementById('ocr-y-start-value').textContent = data.ocr_y_start;
+
+            document.getElementById('ocr-y-end').value = data.ocr_y_end;
+            document.getElementById('ocr-y-end-value').textContent = data.ocr_y_end;
+
             // Unified debug image update
             if (data.debug_images) {
                 const imageMapping = {
@@ -379,13 +418,45 @@
                         }
                     }
                 }
+                updateDebugImageVisibility();
             } else {
                 debugContent.textContent = 'No debug info';
             }
         }
 
+        function updateDebugImageVisibility() {
+            const imageMapping = {
+                'edges': {checkbox: 'show-edges', img: 'edges-img'},
+                'processed_edges': {checkbox: 'show-processed-edges', img: 'processed-edges-img'},
+                'all_contours': {checkbox: 'show-all-contours', img: 'all-contours-img'},
+                'warped': {checkbox: 'show-warped', img: 'warped-img'},
+                'name_region_img': {checkbox: 'show-name-region', img: 'name-region-img'},
+                'threshold_img': {checkbox: 'show-threshold', img: 'threshold-img'},
+                'ocr_region_overlay': {checkbox: 'show-ocr-region-overlay', img: 'ocr-region-overlay-img'}
+            };
+
+            for (const key in imageMapping) {
+                const checkboxId = imageMapping[key].checkbox;
+                const imgId = imageMapping[key].img;
+                const checkbox = document.getElementById(checkboxId);
+                const imgElement = document.getElementById(imgId);
+
+                if (checkbox && imgElement) {
+                    imgElement.style.display = checkbox.checked ? 'block' : 'none';
+                }
+            }
+        }
+
         // Start the camera when page loads
-        document.addEventListener('DOMContentLoaded', startCamera);
+        document.addEventListener('DOMContentLoaded', () => {
+            startCamera();
+            updateDebugImageVisibility();
+        });
+
+        const checkboxes = document.querySelectorAll('.debug-controls input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateDebugImageVisibility);
+        });
 
         // Handle page visibility changes
         document.addEventListener('visibilitychange', () => {
