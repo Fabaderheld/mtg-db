@@ -71,6 +71,23 @@
                 <input type="range" id="epsilon" min="1" max="30" value="15" step="1">
                 <span id="epsilon-value">0.15</span>
             </label>
+            <h3>OCR Region Controls</h3>
+            <label>X Start:
+                <input type="range" id="ocr-x-start" min="0" max="421" value="40" step="1">
+                <span id="ocr-x-start-value">40</span>
+            </label>
+            <label>X End:
+                <input type="range" id="ocr-x-end" min="0" max="421" value="380" step="1">
+                <span id="ocr-x-end-value">380</span>
+            </label>
+            <label>Y Start:
+                <input type="range" id="ocr-y-start" min="0" max="588" value="30" step="1">
+                <span id="ocr-y-start-value">30</span>
+            </label>
+            <label>Y End:
+                <input type="range" id="ocr-y-end" min="0" max="588" value="80" step="1">
+                <span id="ocr-y-end-value">80</span>
+            </label>
         </div>
 
         <div class="card-info">
@@ -88,6 +105,40 @@
             <h3>OCR Input (Thresholded)</h3>
             <img id="ocr-input-image" alt="OCR Input" style="max-width: 300px; display: none;">
             <div id="debug-content">No debug info</div>
+        </div>
+        <div class="debug-images">
+            <h2>Debug Images</h2>
+            <div class="image-grid"
+                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+                <div class="image-item">
+                    <h3>Edges</h3>
+                    <img id="edges-img" alt="Edges" style="max-width: 100%; display: none;">
+                </div>
+                <div class="image-item">
+                    <h3>Processed Edges</h3>
+                    <img id="processed-edges-img" alt="Processed Edges" style="max-width: 100%; display: none;">
+                </div>
+                <div class="image-item">
+                    <h3>All Contours</h3>
+                    <img id="all-contours-img" alt="All Contours" style="max-width: 100%; display: none;">
+                </div>
+                <div class="image-item">
+                    <h3>Warped Card</h3>
+                    <img id="warped-img" alt="Warped Card" style="max-width: 100%; display: none;">
+                </div>
+                <div class="image-item">
+                    <h3>Name Region</h3>
+                    <img id="name-region-img" alt="Name Region" style="max-width: 100%; display: none;">
+                </div>
+                <div class="image-item">
+                    <h3>Threshold for OCR</h3>
+                    <img id="threshold-img" alt="Threshold" style="max-width: 100%; display: none;">
+                </div>
+            </div>
+        </div>
+        <div class="image-item">
+            <h3>OCR Region</h3>
+            <img id="ocr-region-overlay-img" alt="OCR Region" style="max-width: 100%; display: none;">
         </div>
     </div>
 
@@ -126,6 +177,20 @@
                 } else {
                     label.textContent = slider.value;
                 }
+            });
+        });
+
+        // Update slider value displays
+        ['ocr-x-start', 'ocr-x-end', 'ocr-y-start', 'ocr-y-end'].forEach(id => {
+            const slider = document.getElementById(id);
+            const label = document.getElementById(id + '-value');
+
+            // Set initial values
+            label.textContent = slider.value;
+
+            // Update on change
+            slider.addEventListener('input', () => {
+                label.textContent = slider.value;
             });
         });
 
@@ -180,7 +245,6 @@
             }
         }
 
-        // Send frame to server for processing
         async function sendFrameToServer() {
             try {
                 // Draw video frame to canvas
@@ -193,6 +257,12 @@
                 const cannyHigh = parseInt(document.getElementById('canny-high').value, 10);
                 const epsilon = parseInt(document.getElementById('epsilon').value, 10) / 100; // Convert to decimal
 
+                // Get OCR region parameters
+                const ocrXStart = parseInt(document.getElementById('ocr-x-start').value, 10);
+                const ocrXEnd = parseInt(document.getElementById('ocr-x-end').value, 10);
+                const ocrYStart = parseInt(document.getElementById('ocr-y-start').value, 10);
+                const ocrYEnd = parseInt(document.getElementById('ocr-y-end').value, 10);
+
                 // Send to server
                 const response = await fetch('{{ url_for("lorcana.process_frame_route") }}', {
                     method: 'POST',
@@ -202,20 +272,23 @@
                         min_area: minArea,
                         canny_low: cannyLow,
                         canny_high: cannyHigh,
-                        epsilon: epsilon
+                        epsilon: epsilon,
+                        ocr_x_start: ocrXStart,
+                        ocr_x_end: ocrXEnd,
+                        ocr_y_start: ocrYStart,
+                        ocr_y_end: ocrYEnd
                     })
                 });
 
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
-                }
-
+                // Parse the JSON response
                 const data = await response.json();
+
+                // Call handleServerResponse with the data
                 handleServerResponse(data);
-                hideError();
+
             } catch (err) {
-                console.error("Error processing frame:", err);
-                showError(`Error processing frame: ${err.message}`);
+                console.error("Error sending frame to server:", err);
+                showError("Error processing image. Please try again.");
             }
         }
 
@@ -274,28 +347,38 @@
                 cardHtml = 'No card detected';
             }
             infoContent.innerHTML = cardHtml;
+            // Unified debug image update
+            // Unified debug image update
+            if (data.debug_images) {
+                const imageMapping = {
+                    'edges': 'edges-img',
+                    'processed_edges': 'processed-edges-img',
+                    'all_contours': 'all-contours-img',
+                    'warped': 'warped-img',
+                    'name_region_img': 'name-region-img',
+                    'threshold_img': 'threshold-img',
+                    'ocr_region_overlay': 'ocr-region-overlay-img',
+                    'debug_frame': 'debug-frame-img'
+                };
 
-            // Update debug info
-            if (data.debug_info) {
-                let debugHtml = '<pre>';
-                // Filter out image data from debug_info to avoid huge HTML
-                const filteredDebugInfo = {};
-                for (const [key, value] of Object.entries(data.debug_info)) {
-                    if (typeof value === 'object' && value !== null) {
-                        if (Array.isArray(value) && value.length > 100) {
-                            filteredDebugInfo[key] = `[Array with ${value.length} items]`;
-                        } else if (!Array.isArray(value) && Object.keys(value).length > 20) {
-                            filteredDebugInfo[key] = `[Object with ${Object.keys(value).length} properties]`;
-                        } else {
-                            filteredDebugInfo[key] = value;
+                // Hide all images first
+                Object.values(imageMapping).forEach(id => {
+                    const imgElement = document.getElementById(id);
+                    if (imgElement) {
+                        imgElement.style.display = 'none';
+                    }
+                });
+
+                // Show images that are available
+                for (const [key, value] of Object.entries(data.debug_images)) {
+                    if (imageMapping[key] && value) {
+                        const imgElement = document.getElementById(imageMapping[key]);
+                        if (imgElement) {
+                            imgElement.src = value;
+                            imgElement.style.display = 'block';
                         }
-                    } else if (typeof value !== 'string' || !value.startsWith('data:image')) {
-                        filteredDebugInfo[key] = value;
                     }
                 }
-                debugHtml += JSON.stringify(filteredDebugInfo, null, 2);
-                debugHtml += '</pre>';
-                debugContent.innerHTML = debugHtml;
             } else {
                 debugContent.textContent = 'No debug info';
             }

@@ -31,7 +31,7 @@ from ..utils.lorcana_helpers import (
     get_card_names_from_db,
     get_frame,
     get_card_info,
-    get_extracted_text,
+    extract_card_text,
     get_debug_info
 )
 
@@ -83,7 +83,7 @@ def card_info():
     Route for getting the current card info.
     """
     info = get_card_info()
-    text = get_extracted_text()
+    text = extract_card_text()
     debug = get_debug_info()
 
     response = {}
@@ -136,11 +136,50 @@ def process_frame_route():
     canny_high = data.get('canny_high', 150)
     epsilon = data.get('epsilon', 0.15)
 
+    # Get OCR region parameters
+    ocr_x_start = data.get('ocr_x_start', 40)
+    ocr_x_end = data.get('ocr_x_end', 380)
+    ocr_y_start = data.get('ocr_y_start', 30)
+    ocr_y_end = data.get('ocr_y_end', 80)
+
     # Get card names for recognition
     card_names = get_card_names_from_db()
 
     # Process the frame
-    processed_frame, info, text, debug_info = process_frame(frame, card_names)
+    processed_frame, info, text, debug_info = process_frame(
+        frame,
+        card_names=card_names,
+        ocr_params={
+            'x_start': ocr_x_start,
+            'x_end': ocr_x_end,
+            'y_start': ocr_y_start,
+            'y_end': ocr_y_end
+        }
+    )
+    # Function to encode images as base64
+    def encode_image(img):
+        if img is not None and isinstance(img, np.ndarray):
+            try:
+                # Convert grayscale to BGR for consistent encoding
+                if img.ndim == 2:
+                    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+                _, buffer = cv2.imencode('.jpg', img)
+                return f'data:image/jpeg;base64,{base64.b64encode(buffer).decode("utf-8")}'
+            except Exception as e:
+                print(f"Error encoding image: {e}")
+                return None
+        return None
+
+    # Collect all debug images
+    all_debug_images = {}
+
+    # Add processed frame
+    all_debug_images['processed_frame'] = encode_image(processed_frame)
+
+    # Extract images from debug_info before making it JSON safe
+    for key, value in debug_info.items():
+        if isinstance(value, np.ndarray):
+            all_debug_images[key] = encode_image(value)
 
     # Make sure everything is JSON serializable
     def make_json_safe(obj):
@@ -154,46 +193,24 @@ def process_frame_route():
 
     # Apply the fix to all potentially non-serializable objects
     info = make_json_safe(info)
-    debug_info = make_json_safe(debug_info)
 
-    # Get the warped card image from the process_frame function
-    # This assumes card_img is available in debug_info or can be extracted from info
-    warped_image = None
-    if 'card_img' in debug_info and debug_info['card_img'] is not None:
-        _, buffer = cv2.imencode('.jpg', debug_info['card_img'])
-        warped_image = f'data:image/jpeg;base64,{base64.b64encode(buffer).decode("utf-8")}'
+    # Create a version of debug_info without the image arrays
+    json_safe_debug_info = {k: v for k, v in debug_info.items() if not isinstance(v, np.ndarray)}
+    json_safe_debug_info = make_json_safe(json_safe_debug_info)
 
-    # Encode the OCR input image if available
-    ocr_input_image = None
-    if 'ocr_input_img' in debug_info and debug_info['ocr_input_img'] is not None:
-        img = debug_info['ocr_input_img']
-        if isinstance(img, np.ndarray) and img.ndim >= 2:
-            try:
-                _, buffer = cv2.imencode('.jpg', img)
-                ocr_input_image = f'data:image/jpeg;base64,{base64.b64encode(buffer).decode("utf-8")}'
-            except Exception as e:
-                print(f"Error encoding OCR input image: {e}")
-                ocr_input_image = None
-        else:
-            print(f"Invalid OCR input image type: {type(img)}, shape: {getattr(img, 'shape', None)}")
-
-    # Encode the processed frame
-    if processed_frame is not None:
-        _, buffer = cv2.imencode('.jpg', processed_frame)
-        processed_image_base64 = base64.b64encode(buffer).decode('utf-8')
-    else:
-        # If no processed frame, use the debug frame
-        _, buffer = cv2.imencode('.jpg', debug_info.get('debug_frame', frame))
-        processed_image_base64 = base64.b64encode(buffer).decode('utf-8')
+    # For backward compatibility, keep the original warped_image and ocr_input_image
+    warped_image = all_debug_images.get('card_img') or all_debug_images.get('warped')
+    ocr_input_image = all_debug_images.get('ocr_input_img') or all_debug_images.get('threshold_img')
 
     # Return the response
     return jsonify({
-        'processed_image': f'data:image/jpeg;base64,{processed_image_base64}',
-        'warped_image': warped_image,  # Add the warped image to the response
-        'ocr_input_image': ocr_input_image,  # Add this line
+        'processed_image': all_debug_images.get('processed_frame'),
+        'warped_image': warped_image,
+        'ocr_input_image': ocr_input_image,
         'card_info': info,
         'extracted_text': text,
-        'debug_info': debug_info
+        'debug_info': json_safe_debug_info,
+        'debug_images': all_debug_images  # Add all encoded images
     })
 
 @lorcana_bp.route("/")

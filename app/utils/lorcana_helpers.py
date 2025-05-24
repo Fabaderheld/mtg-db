@@ -157,12 +157,13 @@ def detect_card(frame, debug=True, min_area=10000, canny_low=30, canny_high=100,
     print("No card detected")
     return None, None, edges, debug_frame, debug_images
 
-def extract_card_text(warped_card, debug=True):
+def extract_card_text(warped_card, ocr_params=None, debug=True):
     """
     Extract text from a warped card image using OCR.
 
     Args:
         warped_card: The perspective-corrected card image
+        ocr_params: Dictionary with OCR region parameters (optional)
         debug: Whether to show debug information
 
     Returns:
@@ -175,13 +176,24 @@ def extract_card_text(warped_card, debug=True):
     debug_info = {}
 
     # Define the region of interest for the card name
-    y_start, y_end = 30, 80
-    x_start, x_end = 40, 380
+    # Use provided parameters or defaults
+    if ocr_params is None:
+        ocr_params = {}
+
+    x_start = ocr_params.get('x_start', 40)
+    x_end = ocr_params.get('x_end', 380)
+    y_start = ocr_params.get('y_start', 30)
+    y_end = ocr_params.get('y_end', 80)
 
     # Crop the name region
     try:
         name_region = warped_card[y_start:y_end, x_start:x_end]
         debug_info["card_img"] = warped_card
+
+        # Draw rectangle on warped card to show OCR region
+        card_with_rect = warped_card.copy()
+        cv2.rectangle(card_with_rect, (x_start, y_start), (x_end, y_end), (0, 255, 0), 2)
+        debug_info["ocr_region_overlay"] = card_with_rect
     except:
         return None, {"error": "Failed to crop name region"}
 
@@ -199,7 +211,11 @@ def extract_card_text(warped_card, debug=True):
     # Use Tesseract to extract text
     try:
         import pytesseract
-        text = pytesseract.image_to_string(thresh, config='--psm 7 -l eng')
+        # Add this config parameter to avoid writing to disk
+        text = pytesseract.image_to_string(
+            thresh,
+            config='--psm 7 -l eng --tessdata-dir /usr/share/tesseract-ocr/4.00/tessdata'
+        )
         text = text.strip()
         debug_info["raw_text"] = text
         return text, debug_info
@@ -303,7 +319,7 @@ def get_debug_info():
     with lock:
         return debug_info
 
-def process_frame(frame, card_names=None, debug=True):
+def process_frame(frame, card_names=None, ocr_params=None, debug=True):
     """
     Process a frame to detect a card, extract text, and optionally match against reference cards.
 
@@ -320,16 +336,27 @@ def process_frame(frame, card_names=None, debug=True):
     """
     debug_info = {}
 
+    # Add the original frame to debug_info
+    debug_info["original_frame"] = frame.copy()
+
     # Step 1: Detect and warp the card
     warped_card, card_corners, edges, debug_frame, debug_images = detect_card(frame, debug=debug)
     debug_info["debug_frame"] = debug_frame
     debug_info["edges"] = edges
 
+    # Add all debug images from detect_card
+    if debug_images and isinstance(debug_images, dict):
+        debug_info.update(debug_images)
+
+    # If no card was detected, return early
     if warped_card is None:
         return frame, {}, None, debug_info
 
+    # Add the warped card to debug_info
+    debug_info["card_img"] = warped_card.copy()
+
     # Step 2: Extract text from the card
-    extracted_text, text_debug_info = extract_card_text(warped_card, debug=debug)
+    extracted_text, text_debug_info = extract_card_text(warped_card, ocr_params=ocr_params, debug=debug)
     debug_info.update(text_debug_info)
 
     # Step 3: Match the card against reference cards (if available)
@@ -350,22 +377,6 @@ def process_frame(frame, card_names=None, debug=True):
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
     return processed_frame, card_info, extracted_text, debug_info
-
-# Global variables for thread safety
-output_frame = None
-card_info = None
-extracted_text = None
-debug_info = None
-lock = threading.Lock()
-
-def get_extracted_text():
-    """
-    Returns the current extracted text.
-    """
-    global extracted_text, lock
-
-    with lock:
-        return extracted_text
 
 def get_frame():
     """
