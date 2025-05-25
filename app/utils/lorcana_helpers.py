@@ -74,7 +74,7 @@ def detect_card(frame, debug=True, min_area=10000, canny_low=30, canny_high=100,
 
     # Filter by minimum area
     contours = [c for c in contours if cv2.contourArea(c) > min_area]
-    print(f"Found {len(contours)} contours")
+    logging.debug(f"Found {len(contours)} contours in the frame")
 
     # Draw all contours on debug frame
     if debug:
@@ -112,7 +112,7 @@ def detect_card(frame, debug=True, min_area=10000, canny_low=30, canny_high=100,
             # Check aspect ratio
             x, y, w, h = cv2.boundingRect(contour)
             aspect_ratio = float(w) / h
-            print(f"Quadrilateral found: aspect_ratio={aspect_ratio}, area={cv2.contourArea(contour)}")
+            logging.debug(f"Quadrilateral found: aspect_ratio={aspect_ratio}, area={cv2.contourArea(contour)}")
 
             # Lorcana cards have aspect ratio around 0.71
             if 0.60 <= aspect_ratio <= 0.80:
@@ -135,7 +135,7 @@ def detect_card(frame, debug=True, min_area=10000, canny_low=30, canny_high=100,
 
         # Check if the aspect ratio matches a card
         if 0.60 <= aspect_ratio <= 0.80 and cv2.contourArea(contour) > min_area:
-            print(f"Found a card-like contour: aspect_ratio={aspect_ratio}, area={cv2.contourArea(contour)}")
+            logging.debug(f"Found a card-like contour: aspect_ratio={aspect_ratio}, area={cv2.contourArea(contour)}")
 
             # Create a rectangle for the card
             rect = np.array([[x, y], [x+w, y], [x+w, y+h], [x, y+h]], dtype=np.int32)
@@ -154,12 +154,12 @@ def detect_card(frame, debug=True, min_area=10000, canny_low=30, canny_high=100,
             return warped, pts, edges, debug_frame, debug_images
 
     # If we get here, no card was detected
-    print("No card detected")
+    logging.debug("No card detected in the frame")
     return None, None, edges, debug_frame, debug_images
 
 def extract_card_text(warped_card, ocr_params=None, debug=True):
     """
-    Extract text from a warped card image using OCR.
+    Extract text from two regions of a warped card image using OCR.
 
     Args:
         warped_card: The perspective-corrected card image
@@ -167,64 +167,92 @@ def extract_card_text(warped_card, ocr_params=None, debug=True):
         debug: Whether to show debug information
 
     Returns:
-        text: The extracted text
+        text: The combined extracted text from both regions
         debug_info: Dictionary containing debug information and images
     """
     if warped_card is None or warped_card.size == 0:
         print("Error: warped_card is empty!")
-        return None, {}  # Or handle the error appropriately
+        return None, {}
 
     debug_info = {}
 
     height, width, _ = warped_card.shape
 
-    ocr_x_start = ocr_params.get('ocr_x_start', 0)
-    ocr_x_end = ocr_params.get('ocr_x_end', width)
-    ocr_y_start = ocr_params.get('ocr_y_start', 0)
-    ocr_y_end = ocr_params.get('ocr_y_end', height)
+    # Region 1 parameters
+    ocr_x_start_name = ocr_params.get('ocr_x_start_name', 0)
+    ocr_x_end_name = ocr_params.get('ocr_x_end_name', width)
+    ocr_y_start_name = ocr_params.get('ocr_y_start_name', 0)
+    ocr_y_end_name = ocr_params.get('ocr_y_end_name', height)
 
-    # Adjust OCR region parameters if they are out of bounds
-    ocr_x_start = max(0, ocr_x_start)
-    ocr_y_start = max(0, ocr_y_start)
-    ocr_x_end = min(width, ocr_x_end)
-    ocr_y_end = min(height, ocr_y_end)
+    # Region 2 parameters
+    ocr_x_start_card_number = ocr_params.get('ocr_x_start_card_number', 0)
+    ocr_x_end_card_number = ocr_params.get('ocr_x_end_card_number', width)
+    ocr_y_start_card_number = ocr_params.get('ocr_y_start_card_number', 0)
+    ocr_y_end_card_number = ocr_params.get('ocr_y_end_card_number', height)
 
-    # Ensure start is less than end
-    ocr_x_start = min(ocr_x_start, ocr_x_end)
-    ocr_y_start = min(ocr_y_start, ocr_y_end)
+    # Clamp coordinates to image bounds
+    ocr_x_start_name = max(0, min(ocr_x_start_name, width))
+    ocr_x_end_name = max(0, min(ocr_x_end_name, width))
+    ocr_y_start_name = max(0, min(ocr_y_start_name, height))
+    ocr_y_end_name = max(0, min(ocr_y_end_name, height))
 
-    name_region = warped_card[ocr_y_start:ocr_y_end, ocr_x_start:ocr_x_end]
+    ocr_x_start_card_number = max(0, min(ocr_x_start_card_number, width))
+    ocr_x_end_card_number = max(0, min(ocr_x_end_card_number, width))
+    ocr_y_start_card_number = max(0, min(ocr_y_start_card_number, height))
+    ocr_y_end_card_number = max(0, min(ocr_y_end_card_number, height))
 
-    if name_region is None or name_region.size == 0:
-        print("Error: name_region is empty!")
-        return None, {}  # Or handle the error appropriately
+    # Ensure start < end
+    ocr_x_start_name, ocr_x_end_name = sorted([ocr_x_start_name, ocr_x_end_name])
+    ocr_y_start_name, ocr_y_end_name = sorted([ocr_y_start_name, ocr_y_end_name])
+    ocr_x_start_card_number, ocr_x_end_card_number = sorted([ocr_x_start_card_number, ocr_x_end_card_number])
+    ocr_y_start_card_number, ocr_y_end_card_number = sorted([ocr_y_start_card_number, ocr_y_end_card_number])
 
-    gray = cv2.cvtColor(name_region, cv2.COLOR_BGR2GRAY)
-    gray = cv2.cvtColor(name_region, cv2.COLOR_BGR2GRAY)
+    # Extract regions
+    name_region_name = warped_card[ocr_y_start_name:ocr_y_end_name, ocr_x_start_name:ocr_x_end_name]
+    name_region_card_number = warped_card[ocr_y_start_card_number:ocr_y_end_card_number, ocr_x_start_card_number:ocr_x_end_card_number]
 
-    # Apply thresholding to improve OCR
-    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
+    extracted_text_name, extracted_text_card_number = "", ""
 
-    # Store debug images in the debug_info dictionary instead of showing them
-    debug_info["name_region_img"] = name_region
-    debug_info["threshold_img"] = thresh
-    debug_info["ocr_input_img"] = thresh
+    # Process region 1
+    if name_region_name is not None and name_region_name.size != 0:
+        gray_name = cv2.cvtColor(name_region_name, cv2.COLOR_BGR2GRAY)
+        _, thresh_name = cv2.threshold(gray_name, 150, 255, cv2.THRESH_BINARY_INV)
+        debug_info["name_region_img_name"] = name_region_name
+        debug_info["threshold_img_name"] = thresh_name
+        try:
+            extracted_text_name = pytesseract.image_to_string(
+                thresh_name,
+                config='--psm 7 -l eng+deu --tessdata-dir /usr/share/tesseract-ocr/5/tessdata'
+            ).strip()
+        except Exception as e:
+            print(f"OCR error region 1: {e}")
+            debug_info["error_name"] = f"OCR error region 1: {e}"
+    else:
+        print("Error: name_region_name is empty!")
 
-    # Use Tesseract to extract text
-    try:
-        import pytesseract
-        # Add this config parameter to avoid writing to disk
-        text = pytesseract.image_to_string(
-            thresh,
-            config='--psm 7 -l eng+deu --tessdata-dir /usr/share/tesseract-ocr/5/tessdata'
-        )
-        text = text.strip()
-        debug_info["raw_text"] = text
-        return text, debug_info
-    except Exception as e:
-        print(f"OCR error: {e}")
-        debug_info["error"] = f"OCR error: {e}"
-        return None, debug_info
+    # Process region 2
+    if name_region_card_number is not None and name_region_card_number.size != 0:
+        gray_card_number = cv2.cvtColor(name_region_card_number, cv2.COLOR_BGR2GRAY)
+        _, thresh_card_number = cv2.threshold(gray_card_number, 150, 255, cv2.THRESH_BINARY_INV)
+        debug_info["name_region_img_card_number"] = name_region_card_number
+        debug_info["threshold_img_card_number"] = thresh_card_number
+        try:
+            extracted_text_card_number = pytesseract.image_to_string(
+                thresh_card_number,
+                config='--psm 7 -l eng+deu --tessdata-dir /usr/share/tesseract-ocr/5/tessdata'
+            ).strip()
+        except Exception as e:
+            print(f"OCR error region 2: {e}")
+            debug_info["error_card_number"] = f"OCR error region 2: {e}"
+    else:
+        print("Error: name_region_card_number is empty!")
+
+    # Combine results
+    extracted_text = (extracted_text_name + " " + extracted_text_card_number).strip()
+    debug_info["raw_text_name"] = extracted_text_name
+    debug_info["raw_text_card_number"] = extracted_text_card_number
+
+    return extracted_text, debug_info
 
 
 def match_card(warped_card, reference_cards, debug=True):
@@ -365,7 +393,7 @@ def process_frame(frame, card_names=None, ocr_params=None, debug=True):
     card_info = {}
     if extracted_text and card_names:
         from fuzzywuzzy import process, fuzz
-        match, score, _ = process.extractOne(extracted_text, card_names, scorer=fuzz.WRatio)
+        match, score = process.extractOne(extracted_text, card_names, scorer=fuzz.WRatio)
         if score > 60:  # Adjust threshold as needed
             card_info["name"] = match
             card_info["match_score"] = score
@@ -397,15 +425,6 @@ def get_frame():
             return None
 
         return bytearray(encodedImage)
-
-def get_card_info():
-    """
-    Returns the current card info.
-    """
-    global card_info, lock
-
-    with lock:
-        return card_info
 
 def visualize_edges(frame):
     """
@@ -459,7 +478,6 @@ def fetch_and_cache_lorcana_sets():
                         name=set_data.get("name"),
                         code=set_data.get("code"),
                         released_at=set_data.get("released_at"),
-                        local_icon_path=local_icon_path
                     )
                     db.session.add(new_set)
                     db.session.flush()

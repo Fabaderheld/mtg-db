@@ -7,6 +7,15 @@ RUN apt-get update && apt-get install -y libgl1 libglib2.0-0 tesseract-ocr tesse
 # Set the working directory in the container
 WORKDIR /card-game-assistant
 
+# Create RAM disk
+RUN mkdir /mnt/ramdisk
+
+# Set permissions
+RUN chmod 777 /mnt/ramdisk
+
+# Set environment variables
+ENV TMPDIR=/mnt/ramdisk
+
 # Copy only necessary files and directories into the container
 COPY requirements.txt /card-game-assistant/
 COPY run.py /card-game-assistant/

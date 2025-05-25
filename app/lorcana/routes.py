@@ -30,7 +30,6 @@ from ..utils.lorcana_helpers import (
     process_frame,
     get_card_names_from_db,
     get_frame,
-    get_card_info,
     extract_card_text,
     get_debug_info
 )
@@ -76,30 +75,6 @@ def generate_frames():
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
 
-
-@lorcana_bp.route('/card_info')
-def card_info():
-    """
-    Route for getting the current card info.
-    """
-    info = get_card_info()
-    text = extract_card_text()
-    debug = get_debug_info()
-
-    response = {}
-    if info:
-        response.update(info)
-    if text:
-        response['extracted_text'] = text
-    if debug:
-        response['debug_info'] = debug
-
-    if response:
-        return jsonify(response)
-    else:
-        return jsonify({})
-
-area_threshold = 5000
 
 @lorcana_bp.route('/update_threshold', methods=['POST'])
 def update_threshold():
