@@ -19,6 +19,7 @@ from flask import (
     url_for,
     Response
 )
+from functools import wraps
 
 # Local application imports
 from ..models import LorcanaCard, LorcanaSet, db
@@ -96,7 +97,37 @@ def toggle_edges():
     print(f"Edge visualization: {shared_state.show_edges}")
     return jsonify({'success': True, 'show_edges': shared_state.show_edges})
 
+# Define a rate limit
+RATE_LIMIT = 1  # Requests per second
+LAST_REQUEST_TIME = 0
+
+def rate_limit(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        global LAST_REQUEST_TIME
+        now = time.time()
+        if now - LAST_REQUEST_TIME < 1 / RATE_LIMIT:
+            return jsonify({'error': 'Too many requests'}), 429  # HTTP 429 Too Many Requests
+        LAST_REQUEST_TIME = now
+        return f(*args, **kwargs)
+    return decorated_function
+
+@lorcana_bp.route('/get_ocr_defaults', methods=['GET'])
+def get_ocr_defaults():
+    defaults = {
+        'ocr_x_start_name': 40,
+        'ocr_x_end_name': 380,
+        'ocr_y_start_name': 300,  # Keep your intended defaults
+        'ocr_y_end_name': 400,      # Keep your intended defaults
+        'ocr_x_start_card_number': 0,
+        'ocr_x_end_card_number': 100,
+        'ocr_y_start_card_number': 500,
+        'ocr_y_end_card_number': 550
+    }
+    return jsonify(defaults)
+
 @lorcana_bp.route('/process_frame_route', methods=['POST'])
+@rate_limit
 def process_frame_route():
     # Get data from request
     data = request.get_json()
@@ -111,11 +142,17 @@ def process_frame_route():
     canny_high = data.get('canny_high', 150)
     epsilon = data.get('epsilon', 0.15)
 
-    # Get OCR region parameters
-    ocr_x_start = data.get('ocr_x_start', 0)
-    ocr_x_end = data.get('ocr_x_end', 400)
-    ocr_y_start = data.get('ocr_y_start', 300)
-    ocr_y_end = data.get('ocr_y_end', 400)
+    # Get OCR region parameters for name
+    ocr_x_start_name = data.get('ocr_x_start_name', 40)
+    ocr_x_end_name = data.get('ocr_x_end_name', 380)
+    ocr_y_start_name = data.get('ocr_y_start_name', 300)
+    ocr_y_end_name = data.get('ocr_y_end_name', 400)
+
+    # Get OCR region parameters for card number
+    ocr_x_start_card_number = data.get('ocr_x_start_card_number', 0)
+    ocr_x_end_card_number = data.get('ocr_x_end_card_number', 100)
+    ocr_y_start_card_number = data.get('ocr_y_start_card_number', 500)
+    ocr_y_end_card_number = data.get('ocr_y_end_card_number', 550)
 
     # Get card names for recognition
     card_names = get_card_names_from_db()
@@ -125,12 +162,17 @@ def process_frame_route():
         frame,
         card_names=card_names,
         ocr_params={
-            'x_start': ocr_x_start,
-            'x_end': ocr_x_end,
-            'y_start': ocr_y_start,
-            'y_end': ocr_y_end
+            'ocr_x_start_name': ocr_x_start_name,
+            'ocr_x_end_name': ocr_x_end_name,
+            'ocr_y_start_name': ocr_y_start_name,
+            'ocr_y_end_name': ocr_y_end_name,
+            'ocr_x_start_card_number': ocr_x_start_card_number,
+            'ocr_x_end_card_number': ocr_x_end_card_number,
+            'ocr_y_start_card_number': ocr_y_start_card_number,
+            'ocr_y_end_card_number': ocr_y_end_card_number
         }
     )
+
     # Function to encode images as base64
     def encode_image(img):
         if img is not None and isinstance(img, np.ndarray):
@@ -175,17 +217,30 @@ def process_frame_route():
 
     # For backward compatibility, keep the original warped_image and ocr_input_image
     warped_image = all_debug_images.get('card_img') or all_debug_images.get('warped')
-    ocr_input_image = all_debug_images.get('ocr_input_img') or all_debug_images.get('threshold_img')
+    ocr_input_image_name = all_debug_images.get('threshold_img_name')
+    ocr_input_image_card_number = all_debug_images.get('threshold_img_card_number')
 
     # Return the response
     return jsonify({
         'processed_image': all_debug_images.get('processed_frame'),
         'warped_image': warped_image,
-        'ocr_input_image': ocr_input_image,
+        'ocr_input_image_name': ocr_input_image_name,
+        'ocr_input_image_card_number': ocr_input_image_card_number,
         'card_info': info,
+        'extracted_text_name': debug_info.get('raw_text_name', ''),
+        'extracted_text_card_number': debug_info.get('raw_text_card_number', ''),
         'extracted_text': text,
         'debug_info': json_safe_debug_info,
-        'debug_images': all_debug_images  # Add all encoded images
+        'debug_images': all_debug_images,
+        # Return OCR parameters for UI updates
+        'ocr_x_start_name': ocr_x_start_name,
+        'ocr_x_end_name': ocr_x_end_name,
+        'ocr_y_start_name': ocr_y_start_name,
+        'ocr_y_end_name': ocr_y_end_name,
+        'ocr_x_start_card_number': ocr_x_start_card_number,
+        'ocr_x_end_card_number': ocr_x_end_card_number,
+        'ocr_y_start_card_number': ocr_y_start_card_number,
+        'ocr_y_end_card_number': ocr_y_end_card_number
     })
 
 @lorcana_bp.route("/")

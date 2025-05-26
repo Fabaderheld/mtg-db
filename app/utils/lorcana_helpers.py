@@ -178,17 +178,19 @@ def extract_card_text(warped_card, ocr_params=None, debug=True):
 
     height, width, _ = warped_card.shape
 
+    height, width, _ = warped_card.shape
+
     # Region 1 parameters
-    ocr_x_start_name = ocr_params.get('ocr_x_start_name', 0)
-    ocr_x_end_name = ocr_params.get('ocr_x_end_name', width)
-    ocr_y_start_name = ocr_params.get('ocr_y_start_name', 0)
-    ocr_y_end_name = ocr_params.get('ocr_y_end_name', height)
+    ocr_x_start_name = ocr_params.get('ocr_x_start_name')
+    ocr_x_end_name = ocr_params.get('ocr_x_end_name')
+    ocr_y_start_name = ocr_params.get('ocr_y_start_name')
+    ocr_y_end_name = ocr_params.get('ocr_y_end_name')
 
     # Region 2 parameters
-    ocr_x_start_card_number = ocr_params.get('ocr_x_start_card_number', 0)
-    ocr_x_end_card_number = ocr_params.get('ocr_x_end_card_number', width)
-    ocr_y_start_card_number = ocr_params.get('ocr_y_start_card_number', 0)
-    ocr_y_end_card_number = ocr_params.get('ocr_y_end_card_number', height)
+    ocr_x_start_card_number = ocr_params.get('ocr_x_start_card_number')
+    ocr_x_end_card_number = ocr_params.get('ocr_x_end_card_number')
+    ocr_y_start_card_number = ocr_params.get('ocr_y_start_card_number')
+    ocr_y_end_card_number = ocr_params.get('ocr_y_end_card_number')
 
     # Clamp coordinates to image bounds
     ocr_x_start_name = max(0, min(ocr_x_start_name, width))
@@ -391,12 +393,15 @@ def process_frame(frame, card_names=None, ocr_params=None, debug=True):
 
     # Step 3: Match the card against reference cards (if available)
     card_info = {}
-    if extracted_text and card_names:
-        from fuzzywuzzy import process, fuzz
-        match, score = process.extractOne(extracted_text, card_names, scorer=fuzz.WRatio)
-        if score > 60:  # Adjust threshold as needed
-            card_info["name"] = match
-            card_info["match_score"] = score
+    if extracted_text:
+        # Query the database or API for cards matching the extracted text
+
+        card_data = fetch_and_cache_lorcana_cards(search_string=extracted_text)  # Replace with your actual function
+        if card_data:
+            card_info = card_data
+            card_info["match_score"] = 100  # Assuming a perfect match
+        else:
+            card_info["error"] = "No card found matching the extracted text"
 
     # Annotate the processed frame
     processed_frame = frame.copy()

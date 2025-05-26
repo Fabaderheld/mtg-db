@@ -1,479 +1,211 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>Lorcana Card Recognition - Camera Import</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <style>
-        /* Additional styles */
-        .video-container {
-            position: relative;
-            margin-bottom: 20px;
-        }
-
-        #camera-feed,
-        #processed-frame {
-            width: 100%;
-            max-width: 640px;
-            border: 1px solid #ddd;
-        }
-
-        .card-container img,
-        #ocr-input-image {
-            border: 1px solid #ddd;
-            margin-top: 10px;
-            display: none;
-            /* Hide by default */
-        }
-
-        .error-message {
-            color: #721c24;
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 4px;
-        }
-
-        .controls label {
-            display: block;
-            margin-bottom: 10px;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lorcana Card Recognition</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/camera.css') }}">
 </head>
 
 <body>
     <div class="container">
-        <h1>Lorcana Card Recognition - Camera Import</h1>
+        <h1>Lorcana Card Recognition</h1>
 
-        <div id="error-container" style="display: none;" class="error-message"></div>
-
-        <div class="video-container">
-            <video id="camera-feed" autoplay playsinline></video>
-            <canvas id="canvas" style="display:none;"></canvas>
-            <img id="processed-frame" alt="Processed Frame" style="display:none;">
-        </div>
-
-        <div class="controls" style="font-size:1.2em;">
-            <label>Min Area:
-                <input type="range" id="min-area" min="100" max="50000" value="10000" step="100">
-                <span id="min-area-value">10000</span>
-            </label>
-            <label>Canny Low:
-                <input type="range" id="canny-low" min="0" max="255" value="50" step="1">
-                <span id="canny-low-value">50</span>
-            </label>
-            <label>Canny High:
-                <input type="range" id="canny-high" min="0" max="255" value="150" step="1">
-                <span id="canny-high-value">150</span>
-            </label>
-            <label>Epsilon:
-                <input type="range" id="epsilon" min="1" max="30" value="15" step="1">
-                <span id="epsilon-value">0.15</span>
-            </label>
-            <h3>OCR Region Controls</h3>
-            <label>X Start:
-                <input type="range" id="ocr-x-start" min="0" max="421" value="40" step="1">
-                <span id="ocr-x-start-value">40</span>
-            </label>
-            <label>X End:
-                <input type="range" id="ocr-x-end" min="0" max="421" value="380" step="1">
-                <span id="ocr-x-end-value">380</span>
-            </label>
-            <label>Y Start:
-                <input type="range" id="ocr-y-start" min="0" max="588" value="30" step="1">
-                <span id="ocr-y-start-value">30</span>
-            </label>
-            <label>Y End:
-                <input type="range" id="ocr-y-end" min="0" max="588" value="80" step="1">
-                <span id="ocr-y-end-value">80</span>
-            </label>
-        </div>
-
-        <div class="card-info">
-            <h2>Card Information</h2>
-            <div id="info-content">No card detected</div>
-        </div>
-
-        <div class="card-container">
-            <h3>Detected Card</h3>
-            <img id="warped-card-image" alt="Detected Card" style="max-width: 300px; display: none;">
-            <div id="extracted-text" class="mt-2">No text extracted</div>
-        </div>
-
-        <div class="debug-info">
-            <h3>OCR Input (Thresholded)</h3>
-            <img id="ocr-input-image" alt="OCR Input" style="max-width: 300px; display: none;">
-            <div id="debug-content">No debug info</div>
-        </div>
-        <div class="debug-controls">
-            <label>
-                <input type="checkbox" id="show-edges" checked> Show Edges
-            </label>
-            <label>
-                <input type="checkbox" id="show-processed-edges" checked> Show Processed Edges
-            </label>
-            <label>
-                <input type="checkbox" id="show-all-contours" checked> Show All Contours
-            </label>
-            <label>
-                <input type="checkbox" id="show-warped" checked> Show Warped Card
-            </label>
-            <label>
-                <input type="checkbox" id="show-name-region" checked> Show Name Region
-            </label>
-            <label>
-                <input type="checkbox" id="show-threshold" checked> Show Threshold
-            </label>
-            <label>
-                <input type="checkbox" id="show-ocr-region-overlay" checked> Show OCR Region
-            </label>
-        </div>
-        <div class="debug-images">
-            <h2>Debug Images</h2>
-            <div class="image-grid"
-                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
-                <div class="image-item">
-                    <h3>Edges</h3>
-                    <img id="edges-img" alt="Edges" style="max-width: 100%; display: none;">
-                </div>
-                <div class="image-item">
-                    <h3>Processed Edges</h3>
-                    <img id="processed-edges-img" alt="Processed Edges" style="max-width: 100%; display: none;">
-                </div>
-                <div class="image-item">
-                    <h3>All Contours</h3>
-                    <img id="all-contours-img" alt="All Contours" style="max-width: 100%; display: none;">
-                </div>
-                <div class="image-item">
-                    <h3>Warped Card</h3>
-                    <img id="warped-img" alt="Warped Card" style="max-width: 100%; display: none;">
-                </div>
-                <div class="image-item">
-                    <h3>Name Region</h3>
-                    <img id="name-region-img" alt="Name Region" style="max-width: 100%; display: none;">
-                </div>
-                <div class="image-item">
-                    <h3>Threshold for OCR</h3>
-                    <img id="threshold-img" alt="Threshold" style="max-width: 100%; display: none;">
-                </div>
+        <!-- Status indicators -->
+        <div id="status-container">
+            <div id="error-container" class="status-message error-message"></div>
+            <div id="success-container" class="status-message success-message"></div>
+            <div id="loading-container" class="status-message">
+                <div class="spinner"></div>
+                <span>Processing...</span>
             </div>
         </div>
-        <div class="image-item">
-            <h3>OCR Region</h3>
-            <img id="ocr-region-overlay-img" alt="OCR Region" style="max-width: 100%; display: none;">
+
+        <!-- Camera feed and controls -->
+        <div class="camera-section">
+            <div class="video-container">
+                <video id="camera-feed" autoplay playsinline></video>
+                <canvas id="canvas" style="display:none;"></canvas>
+                <img id="processed-frame" alt="Processed Frame">
+                <div id="camera-overlay">
+                    <div class="card-guide"></div>
+                </div>
+            </div>
+
+            <div class="camera-controls">
+                <button id="capture-btn" class="btn primary">Capture</button>
+                <button id="toggle-camera-btn" class="btn">Switch Camera</button>
+                <button id="toggle-auto-btn" class="btn">Auto: ON</button>
+            </div>
+        </div>
+
+        <!-- Results section -->
+        <div class="results-section">
+            <div class="card-preview">
+                <h3>Detected Card</h3>
+                <div class="card-container">
+                    <img id="warped-card-image" alt="Detected Card">
+                    <div id="ocr-regions-container">
+                        <div id="name-region" class="ocr-region" data-region="name"></div>
+                        <div id="number-region" class="ocr-region" data-region="number"></div>
+                    </div>
+                </div>
+                <div class="extracted-text">
+                    <div id="extracted-text-name">No name extracted</div>
+                    <div id="extracted-text-card-number">No card number extracted</div>
+                </div>
+            </div>
+
+            <div class="card-info">
+                <h3>Card Information</h3>
+                <div id="info-content">No card detected</div>
+            </div>
+        </div>
+
+        <!-- Advanced settings (collapsible) -->
+        <div class="advanced-settings">
+            <button id="toggle-settings" class="btn">Advanced Settings</button>
+
+            <div id="settings-panel">
+                <!-- Detection parameters -->
+                <div class="settings-section">
+                    <h4>Detection Parameters</h4>
+                    <div class="slider-control">
+                        <label for="min-area">Min Area: <span id="min-area-value">10000</span></label>
+                        <input type="range" id="min-area" min="100" max="50000" value="10000" step="100">
+                    </div>
+                    <div class="slider-control">
+                        <label for="canny-low">Canny Low: <span id="canny-low-value">50</span></label>
+                        <input type="range" id="canny-low" min="0" max="255" value="50" step="1">
+                    </div>
+                    <div class="slider-control">
+                        <label for="canny-high">Canny High: <span id="canny-high-value">150</span></label>
+                        <input type="range" id="canny-high" min="0" max="255" value="150" step="1">
+                    </div>
+                    <div class="slider-control">
+                        <label for="epsilon">Epsilon: <span id="epsilon-value">0.15</span></label>
+                        <input type="range" id="epsilon" min="1" max="30" value="15" step="1">
+                    </div>
+                </div>
+
+                <!-- OCR Regions -->
+                <div class="settings-section">
+                    <h4>OCR Regions</h4>
+                    <div class="region-controls">
+                        <div class="region-control-group">
+                            <h5>Card Name Region</h5>
+                            <div class="slider-control">
+                                <label for="ocr-x-start-name">X Start: <span
+                                        id="ocr-x-start-name-value">40</span></label>
+                                <input type="range" id="ocr-x-start-name" min="0" max="421" value="40" step="1">
+                            </div>
+                            <div class="slider-control">
+                                <label for="ocr-x-end-name">X End: <span id="ocr-x-end-name-value">380</span></label>
+                                <input type="range" id="ocr-x-end-name" min="0" max="421" value="380" step="1">
+                            </div>
+                            <div class="slider-control">
+                                <label for="ocr-y-start-name">Y Start: <span
+                                        id="ocr-y-start-name-value">30</span></label>
+                                <input type="range" id="ocr-y-start-name" min="0" max="588" value="30" step="1">
+                            </div>
+                            <div class="slider-control">
+                                <label for="ocr-y-end-name">Y End: <span id="ocr-y-end-name-value">80</span></label>
+                                <input type="range" id="ocr-y-end-name" min="0" max="588" value="80" step="1">
+                            </div>
+                        </div>
+
+                        <div class="region-control-group">
+                            <h5>Card Number Region</h5>
+                            <div class="slider-control">
+                                <label for="ocr-x-start-card-number">X Start: <span
+                                        id="ocr-x-start-card-number-value">40</span></label>
+                                <input type="range" id="ocr-x-start-card-number" min="0" max="421" value="40" step="1">
+                            </div>
+                            <div class="slider-control">
+                                <label for="ocr-x-end-card-number">X End: <span
+                                        id="ocr-x-end-card-number-value">380</span></label>
+                                <input type="range" id="ocr-x-end-card-number" min="0" max="421" value="380" step="1">
+                            </div>
+                            <div class="slider-control">
+                                <label for="ocr-y-start-card-number">Y Start: <span
+                                        id="ocr-y-start-card-number-value">500</span></label>
+                                <input type="range" id="ocr-y-start-card-number" min="0" max="588" value="500" step="1">
+                            </div>
+                            <div class="slider-control">
+                                <label for="ocr-y-end-card-number">Y End: <span
+                                        id="ocr-y-end-card-number-value">550</span></label>
+                                <input type="range" id="ocr-y-end-card-number" min="0" max="588" value="550" step="1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Debug Options -->
+                <div class="settings-section">
+                    <h4>Debug Options</h4>
+                    <div class="debug-controls">
+                        <label><input type="checkbox" id="show-edges" checked> Show Edges</label>
+                        <label><input type="checkbox" id="show-processed-edges" checked> Show Processed Edges</label>
+                        <label><input type="checkbox" id="show-all-contours" checked> Show All Contours</label>
+                        <label><input type="checkbox" id="show-warped" checked> Show Warped Card</label>
+                        <label><input type="checkbox" id="show-name-region-name" checked> Show Name Region</label>
+                        <label><input type="checkbox" id="show-name-region-card-number" checked> Show Card Number
+                            Region</label>
+                        <label><input type="checkbox" id="show-threshold-name" checked> Show Name Threshold</label>
+                        <label><input type="checkbox" id="show-threshold-card-number" checked> Show Card Number
+                            Threshold</label>
+                    </div>
+                </div>
+
+                <!-- Debug Images -->
+                <div class="debug-images">
+                    <h4>Debug Images</h4>
+                    <div class="image-grid">
+                        <div class="image-item">
+                            <h5>Edges</h5>
+                            <img id="edges-img" alt="Edges">
+                        </div>
+                        <div class="image-item">
+                            <h5>Processed Edges</h5>
+                            <img id="processed-edges-img" alt="Processed Edges">
+                        </div>
+                        <div class="image-item">
+                            <h5>All Contours</h5>
+                            <img id="all-contours-img" alt="All Contours">
+                        </div>
+                        <div class="image-item">
+                            <h5>Warped Card</h5>
+                            <img id="warped-img" alt="Warped Card">
+                        </div>
+                        <div class="image-item">
+                            <h5>Name Region</h5>
+                            <img id="name-region-img-name" alt="Name Region">
+                        </div>
+                        <div class="image-item">
+                            <h5>Card Number Region</h5>
+                            <img id="name-region-img-card-number" alt="Card Number Region">
+                        </div>
+                        <div class="image-item">
+                            <h5>Name Threshold</h5>
+                            <img id="threshold-img-name" alt="Name Threshold">
+                        </div>
+                        <div class="image-item">
+                            <h5>Card Number Threshold</h5>
+                            <img id="threshold-img-card-number" alt="Card Number Threshold">
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script>
-        // DOM elements
-        const video = document.getElementById('camera-feed');
-        const canvas = document.getElementById('canvas');
-        const processedFrame = document.getElementById('processed-frame');
-        const warpedCardImage = document.getElementById('warped-card-image');
-        const ocrInputImage = document.getElementById('ocr-input-image');
-        const extractedText = document.getElementById('extracted-text');
-        const infoContent = document.getElementById('info-content');
-        const debugContent = document.getElementById('debug-content');
-        const errorContainer = document.getElementById('error-container');
-        const ctx = canvas.getContext('2d');
-
-        // Processing interval ID (for clearing)
-        let processingInterval = null;
-
-        // Update slider value displays
-        ['min-area', 'canny-low', 'canny-high', 'epsilon'].forEach(id => {
-            const slider = document.getElementById(id);
-            const label = document.getElementById(id + '-value');
-
-            // Set initial values
-            if (id === 'epsilon') {
-                label.textContent = (slider.value / 100).toFixed(2);
-            } else {
-                label.textContent = slider.value;
-            }
-
-            // Update on change
-            slider.addEventListener('input', () => {
-                if (id === 'epsilon') {
-                    label.textContent = (slider.value / 100).toFixed(2);
-                } else {
-                    label.textContent = slider.value;
-                }
-            });
-        });
-
-        // Update slider value displays
-        ['ocr-x-start', 'ocr-x-end', 'ocr-y-start', 'ocr-y-end'].forEach(id => {
-            const slider = document.getElementById(id);
-            const label = document.getElementById(id + '-value');
-
-            // Set initial values
-            label.textContent = slider.value;
-
-            // Update on change
-            slider.addEventListener('input', () => {
-                label.textContent = slider.value;
-            });
-        });
-
-        // Show error message
-        function showError(message) {
-            errorContainer.textContent = message;
-            errorContainer.style.display = 'block';
-        }
-
-        // Hide error message
-        function hideError() {
-            errorContainer.style.display = 'none';
-        }
-
-        // Start camera
-        async function startCamera() {
-            try {
-                hideError();
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: "environment",
-                        width: {ideal: 1280},
-                        height: {ideal: 720}
-                    }
-                });
-
-                video.srcObject = stream;
-                video.style.display = 'block';
-
-                video.addEventListener('loadedmetadata', () => {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-
-                    // Clear any existing interval
-                    if (processingInterval) {
-                        clearInterval(processingInterval);
-                    }
-
-                    // Start processing frames
-                    processingInterval = setInterval(sendFrameToServer, 500);
-                });
-            } catch (err) {
-                console.error("Error accessing camera:", err);
-                showError("Unable to access camera. Please check permissions and ensure HTTPS is enabled.");
-
-                // Show fallback message for common errors
-                if (err.name === 'NotAllowedError') {
-                    showError("Camera access denied. Please allow camera access in your browser settings.");
-                } else if (err.name === 'NotFoundError') {
-                    showError("No camera found. Please connect a camera and try again.");
-                }
-            }
-        }
-
-        // Send frame to server for processing
-        async function sendFrameToServer() {
-            try {
-                // Draw video frame to canvas
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageData = canvas.toDataURL('image/jpeg', 0.8);
-
-                // Get parameter values
-                const minArea = parseInt(document.getElementById('min-area').value, 10);
-                const cannyLow = parseInt(document.getElementById('canny-low').value, 10);
-                const cannyHigh = parseInt(document.getElementById('canny-high').value, 10);
-                const epsilon = parseInt(document.getElementById('epsilon').value, 10) / 100; // Convert to decimal
-
-                // Get OCR region parameters
-                const ocrXStart = parseInt(document.getElementById('ocr-x-start').value, 10);
-                const ocrXEnd = parseInt(document.getElementById('ocr-x-end').value, 10);
-                const ocrYStart = parseInt(document.getElementById('ocr-y-start').value, 10);
-                const ocrYEnd = parseInt(document.getElementById('ocr-y-end').value, 10);
-
-                // Send to server
-                const response = await fetch('{{ url_for("lorcana.process_frame_route") }}', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        image: imageData,
-                        min_area: minArea,
-                        canny_low: cannyLow,
-                        canny_high: cannyHigh,
-                        epsilon: epsilon,
-                        ocr_x_start: ocrXStart,
-                        ocr_x_end: ocrXEnd,
-                        ocr_y_start: ocrYStart,
-                        ocr_y_end: ocrYEnd
-                    })
-                });
-
-                // Parse the JSON response
-                const data = await response.json();
-
-                // Call handleServerResponse with the data
-                handleServerResponse(data);
-
-            } catch (err) {
-                console.error("Error sending frame to server:", err);
-                showError("Error processing image. Please try again.");
-            }
-        }
-
-        // Handle server response
-        function handleServerResponse(data) {
-            // Update processed frame
-            if (data.processed_image) {
-                processedFrame.src = data.processed_image;
-                processedFrame.style.display = 'block';
-                video.style.display = 'none'; // Hide video when showing processed frame
-            } else {
-                processedFrame.style.display = 'none';
-                video.style.display = 'block';
-            }
-
-            // Update warped card image
-            if (data.warped_image) {
-                warpedCardImage.src = data.warped_image;
-                warpedCardImage.style.display = 'block';
-            } else {
-                warpedCardImage.style.display = 'none';
-                video.style.display = 'block';
-            }
-
-            // Update OCR input image
-            if (data.ocr_input_image) {
-                ocrInputImage.src = data.ocr_input_image;
-                ocrInputImage.style.display = 'block';
-            } else {
-                ocrInputImage.style.display = 'none';
-                video.style.display = 'block';
-            }
-
-            // Update extracted text
-            if (data.extracted_text) {
-                extractedText.textContent = 'Extracted Text: ' + data.extracted_text;
-            } else {
-                extractedText.textContent = 'No text extracted';
-            }
-
-            // Update card info
-            let cardHtml = '';
-            if (data.card_info && data.card_info.name) {
-                cardHtml = `
-            <div>
-                <strong>Name:</strong> ${data.card_info.name}<br>
-                <strong>Set:</strong> ${data.card_info.set || ''}<br>
-                <strong>Type:</strong> ${data.card_info.type || ''}<br>
-                <strong>Ink:</strong> ${data.card_info.ink || ''}<br>
-                <strong>Cost:</strong> ${data.card_info.cost || ''}<br>
-                <strong>Strength:</strong> ${data.card_info.strength || ''}<br>
-                <strong>Willpower:</strong> ${data.card_info.willpower || ''}<br>
-                <strong>Rarity:</strong> ${data.card_info.rarity || ''}<br>
-                <strong>Text:</strong> ${data.card_info.text || ''}<br>
-            </div>
-        `;
-            } else {
-                cardHtml = 'No card detected';
-            }
-            infoContent.innerHTML = cardHtml;
-
-            // Update range input values
-            document.getElementById('ocr-x-start').value = data.ocr_x_start;
-            document.getElementById('ocr-x-start-value').textContent = data.ocr_x_start;
-
-            document.getElementById('ocr-x-end').value = data.ocr_x_end;
-            document.getElementById('ocr-x-end-value').textContent = data.ocr_x_end;
-
-            document.getElementById('ocr-y-start').value = data.ocr_y_start;
-            document.getElementById('ocr-y-start-value').textContent = data.ocr_y_start;
-
-            document.getElementById('ocr-y-end').value = data.ocr_y_end;
-            document.getElementById('ocr-y-end-value').textContent = data.ocr_y_end;
-
-            // Unified debug image update
-            if (data.debug_images) {
-                const imageMapping = {
-                    'edges': 'edges-img',
-                    'processed_edges': 'processed-edges-img',
-                    'all_contours': 'all-contours-img',
-                    'warped': 'warped-img',
-                    'name_region_img': 'name-region-img',
-                    'threshold_img': 'threshold-img',
-                    'ocr_region_overlay': 'ocr-region-overlay-img',
-                    'debug_frame': 'debug-frame-img'
-                };
-
-                // Hide all images first
-                Object.values(imageMapping).forEach(id => {
-                    const imgElement = document.getElementById(id);
-                    if (imgElement) {
-                        imgElement.style.display = 'none';
-                    }
-                });
-
-                // Show images that are available
-                for (const [key, value] of Object.entries(data.debug_images)) {
-                    if (imageMapping[key] && value) {
-                        const imgElement = document.getElementById(imageMapping[key]);
-                        if (imgElement) {
-                            imgElement.src = value;
-                            imgElement.style.display = 'block';
-                        }
-                    }
-                }
-                updateDebugImageVisibility();
-            } else {
-                debugContent.textContent = 'No debug info';
-            }
-        }
-
-        function updateDebugImageVisibility() {
-            const imageMapping = {
-                'edges': {checkbox: 'show-edges', img: 'edges-img'},
-                'processed_edges': {checkbox: 'show-processed-edges', img: 'processed-edges-img'},
-                'all_contours': {checkbox: 'show-all-contours', img: 'all-contours-img'},
-                'warped': {checkbox: 'show-warped', img: 'warped-img'},
-                'name_region_img': {checkbox: 'show-name-region', img: 'name-region-img'},
-                'threshold_img': {checkbox: 'show-threshold', img: 'threshold-img'},
-                'ocr_region_overlay': {checkbox: 'show-ocr-region-overlay', img: 'ocr-region-overlay-img'}
-            };
-
-            for (const key in imageMapping) {
-                const checkboxId = imageMapping[key].checkbox;
-                const imgId = imageMapping[key].img;
-                const checkbox = document.getElementById(checkboxId);
-                const imgElement = document.getElementById(imgId);
-
-                if (checkbox && imgElement) {
-                    imgElement.style.display = checkbox.checked ? 'block' : 'none';
-                }
-            }
-        }
-
-        // Start the camera when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            startCamera();
-            updateDebugImageVisibility();
-        });
-
-        const checkboxes = document.querySelectorAll('.debug-controls input[type="checkbox"]');
-        checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', updateDebugImageVisibility);
-        });
-
-        // Handle page visibility changes
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                // Page is visible again, restart camera if needed
-                if (!video.srcObject) {
-                    startCamera();
-                }
-            } else {
-                // Page is hidden, stop processing to save resources
-                if (processingInterval) {
-                    clearInterval(processingInterval);
-                    processingInterval = null;
-                }
-            }
-        });
-    </script>
+    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/camera.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 
 </html>
