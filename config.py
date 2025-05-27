@@ -12,3 +12,5 @@ class Config:
     MTG_IMAGE_PATH = os.path.join("static", "images", "mtg_images")
     LORCANA_UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "images", "lorcana_images")
     LORCANA_IMAGE_PATH = os.path.join("static", "images", "lorcana_images")
+
+    SECRET_KEY = os.environ.get('SECRET_KEY')
