@@ -1,4 +1,3 @@
-static/images/*
 instance/*
 import/*
 .vscode/*
@@ -11,3 +10,13 @@ app/utils/__pycache__/*
 static/mana/*
 static/sets_icons/*
 .DS_Store
+project_contents.md
+*.zip
+static/mtg_images/*
+static/mtg_mana/*
+static/mtg_sets_icons/*
+static/lorcana_images/*
+**/__pycache__/*
+__pycache__/
+**/*.pyc
+*.pyc

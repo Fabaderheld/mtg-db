@@ -1,9 +1,10 @@
 {% for card in cards %}
 <div class="col-md-4 mb-4">
-    <div class="card">
-        <a href="{{ url_for('cards.card_detail', card_id=card.id) }}" class="card-link text-decoration-none text-dark">
+    <div class="card custom-card-style card-hover">
+        <a href="{{ url_for('lorcana.card_detail', card_id=card.id) }}"
+            class="card-link text-decoration-none text-dark">
             {% if card.local_image_path %}
-            <img src="/{{ card.local_image_path }}" class="card-img-top" alt="{{ card.name }}">
+            <img src="/{{ card.local_image_path }}" class="card-img-top custom-card-style" alt="{{ card.name }}">
             {% else %}
             <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center"
                 style="height: 300px;">
@@ -12,7 +13,8 @@
             {% endif %}
             <div class="card-body">
                 <h5 class="card-title">{{ card.name }}</h5>
-                <p class="card-text">{{ card.type_line }}</p>
+                <p class="card-text">{{ card.version }}</p>
+                <p class="card-text">{{ card.text | lorcana_icons }}</p>
             </div>
         </a>
         <div class="card-body pt-0"> <!-- Separate card-body for the form -->

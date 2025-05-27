@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "lorcana/base.html" %}
 
 {% block content %}
 
@@ -8,7 +8,7 @@
     <p>Loading...</p>
 </div>
 
-<h1 class="mt-5">Search Magic: The Gathering Cards</h1>
+<h1 class="mt-5">Search Lorcana Cards</h1>
 <form id="searchForm" method="get" class="mb-4">
     <div class="input-group">
         <input type="text" class="form-control" name="query" placeholder="e.g. goblin" value="{{ query or '' }}"
@@ -24,7 +24,7 @@
 {% endif %}
 
 <div id="card-list" class="row">
-    {% include "partials/card_grid.html" %}
+    {% include "lorcana/partials/card_grid.html" %}
 </div>
 
 <script>

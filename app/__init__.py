@@ -1,11 +1,18 @@
-from flask import Flask,current_app
-from .models import db
-from .routes import register_routes
-from .utils.helpers import fetch_and_cache_sets
 import logging
-import re
 import os
+import re
+import secrets
+from flask import Flask, render_template, jsonify, request, session, current_app
+from flask_login import LoginManager
 from markupsafe import Markup
+from flask import Flask
+from .mtg.routes import mtg_bp
+from .lorcana.routes import lorcana_bp
+
+from .models import db,User
+from .routes import register_routes
+from .utils.mtg_helpers import fetch_and_cache_mtg_sets
+from .utils.lorcana_helpers import fetch_and_cache_lorcana_sets
 
 def configure_logging(app):
     """Configure logging for the app."""
@@ -43,8 +50,10 @@ def create_app():
 
     # Ensure folders exist
     logging.info("Creating necessary directories...")
-    logging.debug(f"Creating upload folder at {app.config['UPLOAD_FOLDER']}")
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    logging.debug(f"Creating MTG upload folder at {app.config['MTG_UPLOAD_FOLDER']}")
+    os.makedirs(app.config['MTG_UPLOAD_FOLDER'], exist_ok=True)
+    logging.debug(f"Creating Lorcana upload folder at {app.config['LORCANA_UPLOAD_FOLDER']}")
+    os.makedirs(app.config['LORCANA_UPLOAD_FOLDER'], exist_ok=True)
 
     logging.debug(f"Creating database folder at {os.path.dirname(app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', ''))}")
     os.makedirs(os.path.dirname(app.config['SQLALCHEMY_DATABASE_URI'].replace("sqlite:///", "")), exist_ok=True)
@@ -58,7 +67,8 @@ def create_app():
     # Create database tables within the app context
     with app.app_context():
         db.create_all()
-        fetch_and_cache_sets()
+        fetch_and_cache_mtg_sets()
+        fetch_and_cache_lorcana_sets()
 
     @app.template_filter('mana_icons')
     def mana_icons_filter(mana_cost, mana_icons):
@@ -86,6 +96,30 @@ def create_app():
                 icon_url = current_app.url_for('static', filename=icon_path)
                 img_tag = f'<img src="{icon_url}" alt="{symbol}" style="width:20px; height:20px; vertical-align:middle;">'
                 html = html.replace(symbol, img_tag)
+        return Markup(html)
+
+    @app.template_filter('lorcana_icons')
+    def lorcana_icons_filter(text):
+        logging.debug(f"Filtering text: {text}")
+        # Define the mapping of symbols to icon paths
+        lorcana_icons = {
+            '{I}': 'images/lorcana/ink-cost.svg',
+            '{E}': 'images/lorcana/tap.svg',
+            '{S}': 'images/lorcana/strength.svg',
+            '{L}': 'images/lorcana/lore.svg'
+        }
+
+        # Find all symbols like {I}, {E}, {S}, {L}
+        symbols = re.findall(r'\{[IESL]\}', text or "")
+        html = text or ""
+
+        for symbol in set(symbols):  # Use set to avoid replacing the same symbol multiple times
+            icon_path = lorcana_icons.get(symbol)
+            if icon_path:
+                icon_url = current_app.url_for('static', filename=icon_path)
+                img_tag = f'<img src="{icon_url}" alt="{symbol}" class="lorcana-icon" style="width:20px; height:20px; vertical-align:middle;">'
+                html = html.replace(symbol, img_tag)
+
         return Markup(html)
 
 

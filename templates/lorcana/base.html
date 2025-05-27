@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Game Assistant</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.0/dist/sandstone/bootstrap.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/spinner.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/lorcana.css') }}">
+
+    <style>
+        body {
+            position: relative;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: url("{{ url_for('static', filename='images/lorcana/lorcana_back.png') }}");
+            background-size: cover;
+            background-position: top center;
+            /* Focus on the art part */
+
+            background-repeat: no-repeat;
+            background-color: rgba(0, 0, 0, 0.7);
+            background-blend-mode: multiply;
+            filter: blur(10px);
+            /* Maybe more blur for detailed card art */
+            opacity: 0.8;
+            /* Slightly more transparent */
+            pointer-events: none;
+        }
+
+        .container {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .card {
+            background-color: rgba(255, 255, 255, 0.95);
+            border: none;
+        }
+
+        .no-hover:hover {
+            transform: none !important;
+        }
+    </style>
+    {% block head_extra %}{% endblock %}
+</head>
+
+
+
+<body>
+    <nav class="navbar navbar-expand-lg bg-light" data-bs-theme="light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <img src="{{ url_for('static', filename='images/lorcana/lorcana_logo.png') }}" alt="MTG-DB Logo"
+                    height="32" width="auto">
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarColor03"
+                aria-controls="navbarColor03" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarColor03">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('lorcana.index') }}">Home
+                            <span class="visually-hidden">(current)</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('lorcana.advanced_search') }}">Advanced Search</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('lorcana.sets') }}">Sets</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Pricing</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">About</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button"
+                            aria-haspopup="true" aria-expanded="false">Dropdown</a>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" href="#">Action</a>
+                            <a class="dropdown-item" href="#">Another action</a>
+                            <a class="dropdown-item" href="#">Something else here</a>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="#">Separated link</a>
+                        </div>
+                    </li>
+                </ul>
+                <form method="post" class="d-flex">
+                    <input class="form-control me-sm-2" type="search" name="query" placeholder="e.g. goblin" required>
+                    <button class="btn btn-dark my-2 my-sm-0" type="submit">Search</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}
+        {% endblock %}
+    </div>
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Global loading spinner -->
+    <div class="loading-spinner" id="loading-spinner">
+        <div class="custom-spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/Loading.js') }}"></script>
+
+</body>
+
+</html>

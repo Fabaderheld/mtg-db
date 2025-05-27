@@ -1,14 +1,25 @@
 # Use an official Python runtime as a parent image
-FROM python:3.9-slim
+FROM python:slim
 
 # Set the working directory in the container
-WORKDIR /app
+WORKDIR /card-game-assistant
 
 # Copy only necessary files and directories into the container
-COPY requirements.txt /app/
-COPY app.py /app/
-COPY templates/ /app/templates/
-COPY static/ /app/static/
+COPY requirements.txt /card-game-assistant/
+COPY run.py /card-game-assistant/
+COPY config.py /card-game-assistant/
+COPY templates/ /card-game-assistant/templates/
+
+# Create a directory for core static files
+RUN mkdir /card-game-assistant/core_static /card-game-assistant/static
+
+# Copy static files into the container
+COPY static/css /card-game-assistant/core_static/css
+COPY static/js /card-game-assistant/core_static/js
+COPY static/fonts /card-game-assistant/core_static/fonts
+COPY static/images /card-game-assistant/core_static/images
+
+COPY app/ /card-game-assistant/app
 # Add other necessary files and directories here
 
 # Install any needed packages specified in requirements.txt
@@ -18,8 +29,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 5000
 
 # Define environment variable
-ENV FLASK_APP=app.py
+ENV FLASK_APP=run.py
 ENV FLASK_ENV=development
 
-# Run app.py when the container launches
-CMD ["flask", "run", "--host=0.0.0.0"]
+# Copy the entrypoint script into the container
+COPY entrypoint.sh /card-game-assistant/entrypoint.sh
+
+# Make entrypoint executable
+RUN chmod +x entrypoint.sh
+
+ENTRYPOINT ["/card-game-assistant/entrypoint.sh"]
