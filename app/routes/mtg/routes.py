@@ -2,6 +2,7 @@
 import csv
 import logging
 from io import StringIO
+from flask_login import login_required, current_user
 
 from flask import (
     Blueprint,
@@ -13,8 +14,8 @@ from flask import (
     url_for
 )
 
-from ..models import MtgCard, MtgSet, db
-from ..utils.mtg_helpers import (
+from ...models import MtgCard, MtgSet, db, MtgInventoryEntry
+from ...utils.mtg_helpers import (
     download_mtg_image,
     fetch_and_cache_mtg_cards,
     fetch_and_cache_mtg_mana_icons,
@@ -149,3 +150,36 @@ def advanced_search():
         mana_icons=mana_icons,
         error=error
     )
+
+@mtg_bp.route('/inventory')
+def inventory():
+    # TODO: Fetch MTG inventory data for the user
+    inventory_data = []  # Replace with actual data
+    return render_template('mtg/inventory.html', inventory=inventory_data)
+
+@mtg_bp.route('/decks')
+def decks():
+    # TODO: Fetch MTG deck data for the user
+    decks_data = []  # Replace with actual data
+    return render_template('mtg/decks.html', decks=decks_data)
+
+@mtg_bp.route('/add_to_inventory', methods=['POST'])
+@login_required
+def add_to_inventory():
+    card_id = request.form.get('id')
+    # You can add more fields if needed, but only card_id is required for inventory
+    if not card_id:
+        flash("No card ID provided.", "danger")
+        return redirect(request.referrer or url_for('mtg.index'))
+
+    # Check if the user already has this card in inventory
+    entry = MtgInventoryEntry.query.filter_by(user_id=current_user.id, card_id=card_id).first()
+    if entry:
+        entry.quantity += 1
+        flash("Added another copy to your inventory.", "success")
+    else:
+        entry = MtgInventoryEntry(user_id=current_user.id, card_id=card_id, quantity=1)
+        db.session.add(entry)
+        flash("Card added to your inventory.", "success")
+    db.session.commit()
+    return redirect(request.referrer or url_for('mtg.index'))

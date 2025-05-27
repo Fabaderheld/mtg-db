@@ -2,6 +2,7 @@
 import csv
 import logging
 from io import StringIO
+from flask_login import login_required, current_user
 
 from flask import (
     Blueprint,
@@ -13,8 +14,8 @@ from flask import (
     url_for
 )
 
-from ..models import LorcanaCard, LorcanaSet, db
-from ..utils.lorcana_helpers import (
+from ...models import LorcanaCard, LorcanaSet, db
+from ...utils.lorcana_helpers import (
     download_lorcana_image,
     fetch_and_cache_lorcana_cards,
     #fetch_and_cache_lorcana_mana_icons,
@@ -113,3 +114,15 @@ def set_detail(set_code):
         cards=cards,
         selected_set=selected_set
     )
+
+@lorcana_bp.route('/inventory')
+def inventory():
+    # TODO: Fetch Lorcana inventory data for the user
+    inventory_data = []  # Replace with actual data
+    return render_template('lorcana/inventory.html', inventory=inventory_data)
+
+@lorcana_bp.route('/decks')
+def decks():
+    # TODO: Fetch Lorcana deck data for the user
+    decks_data = []  # Replace with actual data
+    return render_template('lorcana/decks.html', decks=decks_data)

@@ -1,0 +1,12 @@
+{% extends "mtg_base.html" %}
+
+{% block content %}
+<h1>MTG Decks</h1>
+<ul>
+    {% for deck in decks %}
+    <li>
+        <a href="#">{{ deck.name }}</a>
+    </li>
+    {% endfor %}
+</ul>
+{% endblock %}
