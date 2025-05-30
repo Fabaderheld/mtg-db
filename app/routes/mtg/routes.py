@@ -97,10 +97,11 @@ def set_detail(set_code):
 
 @mtg_bp.route('/card/<card_id>')
 def card_detail(card_id):
-    card = MtgCard.query.get(card_id)
-    if not card:
-        fetch_and_cache_mtg_cards(card_id=card_id)  # Try to fetch the card from Scryfall API
-        card = MtgCard.query.get(card_id)  # Try again after fetching
+    cards = fetch_and_cache_mtg_cards(card_id=card_id)
+    if not cards:
+        # Redirect to a custom "Card Not Found" page
+        return redirect(url_for('mtg.card_not_found', card_id=card_id))
+    card = cards[0]  # Extract the card from the list
 
     card_set = card.set if card.set else None
     mana_icons = fetch_and_cache_mtg_symbols()  # Fetch mana icons from Scryfall API
@@ -108,6 +109,11 @@ def card_detail(card_id):
     logging.info(f"Reprints found: {reprints}")
 
     return render_template('mtg/card_detail.html', card=card, card_set=card_set, mana_icons=mana_icons, reprints=reprints)
+
+@mtg_bp.route('/card_not_found/<card_id>')
+def card_not_found(card_id):
+    # Render a custom "Card Not Found" template
+    return render_template('mtg/card_not_found.html', card_id=card_id)
 
 @mtg_bp.route("/advanced_search", methods=["GET", "POST"])
 def advanced_search():
