@@ -97,13 +97,19 @@ def fetch_and_cache_mtg_cards(
     per_page=20
 ):
     try:
+        logging.info(f"MTG Card Query - ID: {card_id}, Name: {card_name}, Type: {card_type}, "
+                    f"Colors: {selected_colors}, Sets: {selected_sets}, Search: {search_string}, "
+                    f"Unique: {unique_cards}, Page: {page}")
         # If card_id is provided, fetch a single card by ID
         if card_id:
+            logging.info(f"Querying database for card ID: {card_id}")
             card = MtgCard.query.get(card_id)
             if card:
+                logging.info(f"Card found in database: {card.name} ({card_id})")
                 return [card]  # Return as a list for consistency
             else:
                 # Fetch from Scryfall by ID
+                logging.info(f"Card not found in database, fetching from Scryfall: {card_id}")
                 scryfall_url = f"https://api.scryfall.com/cards/{card_id}"
                 response = requests.get(scryfall_url)
                 if response.status_code == 200:
