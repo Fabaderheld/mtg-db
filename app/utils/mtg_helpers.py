@@ -329,31 +329,29 @@ def mtg_card_to_dict(card):
         } if card.set else None
     }
 
-def fetch_mtg_reprints(card):
+def fetch_and_cache_reprints(card):
     if not card.oracle_id:
         return []
 
-    # Try local DB first
+    # 1. Try local DB first
     reprints = MtgCard.query.filter(
         MtgCard.oracle_id == card.oracle_id,
         MtgCard.id != card.id
     ).all()
     if reprints:
-        return [mtg_card_to_dict(reprint) for reprint in reprints]
+        return reprints
 
-    # Fallback: fetch from Scryfall using prints_search_uri
-    if card.prints_search_uri:
-        response = requests.get(card.prints_search_uri)
-        if response.status_code == 200:
-            data = response.json()
-            cards = data.get("data", [])
-            # Map Scryfall dict to your output dict directly
-            return [
-                scryfall_card_to_dict(card_data)
-                for card_data in cards
-                if card_data["id"] != card.id
-            ]
-    return []
+    # 2. If not found, fetch and cache all prints by oracle_id
+    # Scryfall supports searching by oracle_id: https://scryfall.com/docs/api/cards/search
+    # Example query: oracleid:<oracle_id>
+    fetch_and_cache_mtg_cards(search_string=f'oracleid:{card.oracle_id}', unique_cards=False)
+
+    # 3. Query again after caching
+    reprints = MtgCard.query.filter(
+        MtgCard.oracle_id == card.oracle_id,
+        MtgCard.id != card.id
+    ).all()
+    return reprints
 
 def scryfall_card_to_dict(card_data):
     set_code = card_data.get('set')
