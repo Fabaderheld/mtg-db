@@ -1,0 +1,10 @@
+{% extends "mtg/base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="alert alert-danger" role="alert">
+        Card with ID {{ card_id }} not found.
+    </div>
+    <a href="{{ url_for('mtg.index') }}" class="btn btn-primary">Back to Search</a>
+</div>
+{% endblock %}
