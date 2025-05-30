@@ -116,7 +116,7 @@
                         <li class="list-group-item d-flex align-items-center">
                             <a href="{{ url_for('mtg.card_detail', card_id=reprint.id) }}"
                                 class="d-flex align-items-center text-decoration-none text-dark w-100"
-                                data-image="{{ url_for('static', filename=reprint.local_image_path) }}">
+                                data-image="{{ url_for('static', filename=reprint.local_image_path.replace('static/', '')) }}">
                                 <span class="set-name flex-grow-1">{{ reprint.set.name }}</span>
                                 <img src="{{ url_for('static', filename=reprint.set.local_icon_path) }}"
                                     alt="{{ reprint.set.name }} Icon" class="set-icon ms-2" />
