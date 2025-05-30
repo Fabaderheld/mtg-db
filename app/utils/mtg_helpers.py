@@ -29,7 +29,7 @@ def fetch_and_cache_mtg_sets():
                     local_icon_path = None
                     if icon_url:
                         filename = f"{set_data.get('code')}.svg"
-                        save_dir = os.path.join(current_app.static_folder, "mtg_sets_icons")
+                        save_dir = os.path.join(current_app.static_folder, "images", "mtg_sets_icons")
                         os.makedirs(save_dir, exist_ok=True)
                         save_path = os.path.join(save_dir, filename)
 
@@ -38,7 +38,7 @@ def fetch_and_cache_mtg_sets():
                             if img_response.status_code == 200:
                                 with open(save_path, "wb") as f:
                                     f.write(img_response.content)
-                                local_icon_path = f"mtg_sets_icons/{filename}"
+                                local_icon_path = f"images/mtg_sets_icons/{filename}"
                                 time.sleep(0.05)  # 50ms delay
                         except Exception as img_e:
                             logging.error(f"Failed to download icon for set {set_data.get('code')}: {img_e}")
