@@ -49,8 +49,7 @@ def register():
 
         try:
             # Create a new user
-            hashed_password = generate_password_hash(password)
-            new_user = User(username=username, password=hashed_password)
+            new_user = User(username=username, password=password)
             db.session.add(new_user)
             db.session.commit()
 
@@ -62,8 +61,7 @@ def register():
                 logging.error(f"User {username} was not found in DB after commit!")
 
             flash("Registration successful! Please log in.", "success")
-            print(f"User found: {user.username}, password hash: {user.password}")
-            logging.debug(f"User {username} registered successfully with password hash: {hashed_password}")
+            logging.debug(f"User {username} registered successfully with password hash: {password}")
             logging.debug(f"Password entered: {password}")
 
             return redirect(url_for('auth.login'))
