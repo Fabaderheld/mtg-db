@@ -11,7 +11,7 @@ from .routes.lorcana.routes import lorcana_bp
 
 from .models import db,User
 from .routes import register_routes
-from .utils.mtg_helpers import fetch_and_cache_mtg_sets
+from .utils.mtg_helpers import fetch_and_cache_mtg_sets,fetch_and_cache_mtg_symbols
 from .utils.lorcana_helpers import fetch_and_cache_lorcana_sets
 
 def configure_logging(app):
@@ -77,6 +77,7 @@ def create_app():
         db.create_all()
         fetch_and_cache_mtg_sets()
         fetch_and_cache_lorcana_sets()
+        fetch_and_cache_mtg_symbols()
 
     @app.template_filter('mana_icons')
     def mana_icons_filter(mana_cost, mana_icons):

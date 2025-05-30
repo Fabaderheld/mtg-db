@@ -18,7 +18,7 @@ from ...models import MtgCard, MtgSet, db, MtgInventoryEntry
 from ...utils.mtg_helpers import (
     download_mtg_image,
     fetch_and_cache_mtg_cards,
-    fetch_and_cache_mtg_mana_icons,
+    fetch_and_cache_mtg_symbols,
     fetch_and_cache_reprints
 )
 
@@ -103,7 +103,7 @@ def card_detail(card_id):
         card = MtgCard.query.get(card_id)  # Try again after fetching
 
     card_set = card.set if card.set else None
-    mana_icons = fetch_and_cache_mtg_mana_icons()  # Fetch mana icons from Scryfall API
+    mana_icons = fetch_and_cache_mtg_symbols()  # Fetch mana icons from Scryfall API
     reprints = fetch_and_cache_reprints(card)  # Fetch reprints from Scryfall API
     logging.info(f"Reprints found: {reprints}")
 
@@ -115,7 +115,7 @@ def advanced_search():
     sets = MtgSet.query.all()
     card_types = ["Creature", "Enchantment", "Instant", "Sorcery", "Artifact", "Land", "Planeswalker"]
     colors = ["White", "Blue", "Black", "Red", "Green"]
-    mana_icons = fetch_and_cache_mtg_mana_icons()  # Fetch mana icons from Scryfall API
+    mana_icons = fetch_and_cache_mtg_symbols()  # Fetch mana icons from Scryfall API
 
 
     error = None

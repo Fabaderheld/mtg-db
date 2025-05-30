@@ -364,25 +364,25 @@ def fetch_and_cache_mtg_cards(
         db.session.rollback()
         return []
 
-def fetch_and_cache_mtg_mana_icons():
+def fetch_and_cache_mtg_symbols():
     response = requests.get("https://api.scryfall.com/symbology")
-    mana_icons = {}
+    symbols = {}
     if response.status_code == 200:
         data = response.json()
-        os.makedirs("static/mtg_mana", exist_ok=True)
+        os.makedirs("static/images/mtg_symbols", exist_ok=True)
         for symbol in data.get("data", []):
             symbol_code = symbol["symbol"]
             svg_url = symbol["svg_uri"]
             filename = symbol_code.replace("{", "").replace("}", "").replace("/", "").replace(" ", "") + ".svg"
-            local_path = os.path.join("static", "mtg_mana", filename)
+            local_path = os.path.join("static", "images", "mtg_symbols", filename)
             if not os.path.exists(local_path):
                 img_response = requests.get(svg_url)
                 if img_response.status_code == 200:
                     with open(local_path, "wb") as f:
                         f.write(img_response.content)
                     time.sleep(0.05)
-            mana_icons[symbol_code] = f"mtg_mana/{filename}"
-    return mana_icons
+            symbols[symbol_code] = f"images/mtg_symbols/{filename}"
+    return symbols
 
 def mtg_card_to_dict(card):
     """Convert a single MTG card to dictionary"""
