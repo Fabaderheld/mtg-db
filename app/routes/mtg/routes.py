@@ -154,7 +154,7 @@ def advanced_search():
 @mtg_bp.route('/inventory')
 def inventory():
     # TODO: Fetch MTG inventory data for the user
-    inventory_data = []  # Replace with actual data
+    inventory_data = MtgInventoryEntry.query.filter_by(user_id=current_user.id).all()
     return render_template('mtg/inventory.html', inventory=inventory_data)
 
 @mtg_bp.route('/decks')
