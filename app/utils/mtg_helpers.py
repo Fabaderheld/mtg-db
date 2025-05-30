@@ -92,7 +92,7 @@ def fetch_and_cache_mtg_cards(
     selected_colors=None,
     selected_sets=None,
     search_string=None,
-    unique_cards=False,
+    unique_cards=True,
     page=1,
     per_page=20
 ):
