@@ -8,6 +8,9 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    game = request.args.get('game', 'mtg')  # Default to MTG if no game is specified
+    template = f'auth/login_{game}.html'  # Use a game-specific template
+
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -17,15 +20,15 @@ def login():
             flash("Logged in successfully.", "success")
             logging.debug(f"User {username} logged in successfully.")
 
-            # Debugging output
-            logging.debug(f"User found: {user.username}, password hash: {user.password}")
-            logging.debug(f"Password entered: {password}")
-
-            return redirect(url_for('mtg.index'))  # Redirect to a page that requires login
+            next_url = request.args.get('next')
+            if next_url:
+                return redirect(next_url)
+            return redirect(url_for(f'{game}.index'))  # Redirect to the game's index page
         else:
             flash("Invalid username or password.", "danger")
             logging.debug(f"Failed login attempt for user {username}.")
-    return render_template('auth/login.html')
+
+    return render_template(template, game=game)  # Pass the game to the template
 
 @auth_bp.route('/logout')
 @login_required
@@ -36,6 +39,9 @@ def logout():
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
+    game = request.args.get('game', 'mtg')  # Default to MTG if no game is specified
+    template = f'auth/register_{game}.html'  # Use a game-specific template
+
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -45,7 +51,7 @@ def register():
         if existing_user:
             logging.debug(f"Registration attempt with existing username: {username}")
             flash("Username already exists. Please choose a different one.", "danger")
-            return render_template('auth/register.html')
+            return render_template(template, game=game)
 
         try:
             # Create a new user
@@ -64,11 +70,11 @@ def register():
             logging.debug(f"User {username} registered successfully with password hash: {password}")
             logging.debug(f"Password entered: {password}")
 
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.login', game=game))  # Pass the game to the login route
         except Exception as e:
             db.session.rollback()
             logging.error(f"Error registering user {username}: {str(e)}")
             flash("An error occurred during registration. Please try again.", "danger")
-            return render_template('auth/register.html')
+            return render_template(template, game=game)
 
-    return render_template('auth/register.html')
+    return render_template(template, game=game)  # Pass the game to the template

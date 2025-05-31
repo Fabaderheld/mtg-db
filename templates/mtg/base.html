@@ -85,10 +85,10 @@
                     <!-- Conditionally display Register/Login or User Profile links -->
                     {% if not current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth.register') }}">Register</a>
+                        <a class="nav-link" href="{{ url_for('auth.register', game='mtg') }}">Register</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
+                        <a class="nav-link" href="{{ url_for('auth.login', game='mtg') }}">Login</a>
                     </li>
                     {% else %}
                     <li class="nav-item">
