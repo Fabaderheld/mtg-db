@@ -190,3 +190,22 @@ def add_to_inventory():
         flash("Card added to your inventory.", "success")
     db.session.commit()
     return redirect(request.referrer or url_for('mtg.index'))
+
+@mtg_bp.route('/import', methods=['POST'])
+def import_invetory():
+    return render_template('mtg/import.html')
+
+
+
+
+@mtg_bp.route('/process_import', methods=['POST'])
+def process_text():
+    import_inventory = request.form['import_inventory']  # Get the text from the form
+    result = my_python_function(import_inventory)  # Call your Python function
+    return render_template('result.html', result=result)  # Display the result
+
+def my_python_function(text):
+    # Your Python function to process the text
+    # Example:
+    word_count = len(text.split())
+    return f"The text has {word_count} words."
