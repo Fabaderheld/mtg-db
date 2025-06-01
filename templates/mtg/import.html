@@ -3,13 +3,19 @@
 {% block content %}
 <h1 class="mb-4">Import</h1>
 
-<form method="post" action="/process_text">
-    <label for="import_inventory">Inventory:</label><br>
-    <textarea id="import_inventory" name="import_inventory" rows="4" cols="50"></textarea><br><br>
+<form method="post" action="{{ url_for('mtg.import_inventory') }}" enctype="multipart/form-data">
+    <div class="mb-3">
+        <label for="import_inventory" class="form-label">Paste Inventory Data:</label>
+        <textarea class="form-control" id="import_inventory" name="import_inventory" rows="4" cols="50"></textarea>
+    </div>
+
+    <div class="mb-3">
+        <label for="csv_file" class="form-label">Or Upload CSV File:</label>
+        <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv">
+    </div>
+
     <button class="btn btn-dark my-2 my-sm-0" type="submit">Import</button>
 </form>
-
-
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {

@@ -19,7 +19,9 @@ from ...utils.mtg_helpers import (
     download_mtg_image,
     fetch_and_cache_mtg_cards,
     fetch_and_cache_mtg_symbols,
-    fetch_and_cache_reprints
+    fetch_and_cache_reprints,
+    find_card_for_import,
+    parse_csv_content
 )
 
 mtg_bp = Blueprint("mtg", __name__, url_prefix="/mtg")
@@ -170,42 +172,72 @@ def decks():
     decks_data = []  # Replace with actual data
     return render_template('mtg/decks.html', decks=decks_data)
 
-@mtg_bp.route('/add_to_inventory', methods=['POST'])
+@mtg_bp.route('/import', methods=['GET', 'POST'])
 @login_required
-def add_to_inventory():
-    card_id = request.form.get('id')
-    # You can add more fields if needed, but only card_id is required for inventory
-    if not card_id:
-        flash("No card ID provided.", "danger")
-        return redirect(request.referrer or url_for('mtg.index'))
+def import_inventory():
+    if request.method == 'POST':
+        pasted_data = request.form.get('import_inventory')
+        uploaded_file = request.files.get('csv_file')
 
-    # Check if the user already has this card in inventory
-    entry = MtgInventoryEntry.query.filter_by(user_id=current_user.id, card_id=card_id).first()
-    if entry:
-        entry.quantity += 1
-        flash("Added another copy to your inventory.", "success")
-    else:
-        entry = MtgInventoryEntry(user_id=current_user.id, card_id=card_id, quantity=1)
-        db.session.add(entry)
-        flash("Card added to your inventory.", "success")
-    db.session.commit()
-    return redirect(request.referrer or url_for('mtg.index'))
+        if pasted_data and uploaded_file and uploaded_file.filename:
+            flash("Please provide data either by pasting or uploading a file, not both.", "warning")
+            return render_template('mtg/import.html')
 
-@mtg_bp.route('/import', methods=['POST'])
-def import_invetory():
+        cards = []
+        if pasted_data:
+            try:
+                cards = parse_csv_content(pasted_data)
+            except ValueError as e:
+                flash(f"Error parsing pasted data: {e}", "danger")
+                return render_template('mtg/import.html')
+        elif uploaded_file and uploaded_file.filename:
+            if uploaded_file.filename.endswith('.csv'):
+                try:
+                    file_content = uploaded_file.read().decode('utf-8')
+                    cards = parse_csv_content(file_content)
+                except ValueError as e:
+                    flash(f"Error parsing uploaded file: {e}", "danger")
+                    return render_template('mtg/import.html')
+            else:
+                flash("Please upload a valid CSV file.", "danger")
+                return render_template('mtg/import.html')
+        else:
+            flash("Please provide data either by pasting or uploading a file.", "warning")
+            return render_template('mtg/import.html')
+
+        # Now process the cards: fetch from API if needed, then add to inventory
+        added_count = 0
+        skipped_count = 0
+
+        for card_data in cards:
+            # Use your existing function to search for the card
+            mtg_card = find_card_for_import(card_data['name'], card_data['edition'])
+
+            # Check if we found a matching card
+            if mtg_card:
+                # Add to inventory or update quantity
+                entry = MtgInventoryEntry.query.filter_by(
+                    user_id=current_user.id,
+                    card_id=mtg_card.id
+                ).first()
+
+                if entry:
+                    entry.quantity += card_data['count']
+                else:
+                    entry = MtgInventoryEntry(
+                        user_id=current_user.id,
+                        card_id=mtg_card.id,
+                        quantity=card_data['count']
+                    )
+                    db.session.add(entry)
+
+                added_count += card_data['count']
+            else:
+                flash(f"Card '{card_data['name']}' from edition '{card_data['edition']}' not found.", "warning")
+                skipped_count += 1
+
+        db.session.commit()
+        flash(f"Successfully imported {added_count} cards into your inventory. {skipped_count} cards were skipped.", "success")
+        return render_template('mtg/import.html')
+
     return render_template('mtg/import.html')
-
-
-
-
-@mtg_bp.route('/process_import', methods=['POST'])
-def process_text():
-    import_inventory = request.form['import_inventory']  # Get the text from the form
-    result = my_python_function(import_inventory)  # Call your Python function
-    return render_template('result.html', result=result)  # Display the result
-
-def my_python_function(text):
-    # Your Python function to process the text
-    # Example:
-    word_count = len(text.split())
-    return f"The text has {word_count} words."

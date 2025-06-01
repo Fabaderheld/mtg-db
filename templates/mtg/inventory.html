@@ -2,7 +2,9 @@
 
 {% block content %}
 <h1 class="mb-4">MTG Inventory</h1>
-<button class="btn btn-dark my-2 my-sm-0" type="submit">Import</button>
+<a href="{{ url_for('mtg.import_inventory') }}">
+    <button class="btn btn-dark my-2 my-sm-0" type="submit">Import</button>
+</a>
 <table class="table mt-4">
     <thead>
         <tr>
