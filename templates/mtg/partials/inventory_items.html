@@ -1,0 +1,34 @@
+{% for item in inventory %}
+<tr>
+    <td>
+        {% if item.card.local_image_path %}
+        <img src="/{{ item.card.local_image_path }}" style="max-height: 50px;" alt="{{ item.card.name }}"
+            data-image="{{ url_for('static', filename=item.card.local_image_path.replace('static/', '')) }}">
+        {% else %}
+        <div
+            style="width: 100px; height: 100px; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center;">
+            No Image
+        </div>
+        {% endif %}
+    </td>
+    <td>
+        <a href="{{ url_for('mtg.card_detail', card_id=item.card.id) }}">
+            {{ item.card.name }}
+        </a>
+    </td>
+    <td><img src="{{ url_for('static', filename=item.card.set.local_icon_path) }}" style="max-height: 25px;"> {{
+        item.card.set.name }}
+    </td>
+    <td>
+        <form method="post" action="{{ url_for('mtg.update_quantity', entry_id=item.id) }}">
+            <input type="number" name="quantity" value="{{ item.quantity }}" min="0" max="999" size="3" maxlength="3">
+            <button type="submit" class="btn btn-sm btn-primary">Update</button>
+        </form>
+    </td>
+    <td>
+        <form method="post" action="{{ url_for('mtg.delete_from_inventory', entry_id=item.id) }}">
+            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+        </form>
+    </td>
+</tr>
+{% endfor %}

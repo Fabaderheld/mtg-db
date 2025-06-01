@@ -161,10 +161,27 @@ def advanced_search():
     )
 
 @mtg_bp.route('/inventory')
+@login_required
 def inventory():
-    # TODO: Fetch MTG inventory data for the user
-    inventory_data = MtgInventoryEntry.query.filter_by(user_id=current_user.id).all()
-    return render_template('mtg/inventory.html', inventory=inventory_data)
+    page = request.args.get('page', 1, type=int)  # Get page number from request
+    per_page = 20  # Number of items per page
+
+    # Fetch paginated inventory data for the user
+    pagination = MtgInventoryEntry.query.filter_by(user_id=current_user.id).paginate(
+        page=page,
+        per_page=per_page,
+        error_out=False  # Return empty list if page is out of range
+    )
+
+    inventory_data = pagination.items  # Get the items for the current page
+
+    # Check if it's an AJAX request (for infinite scrolling)
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # Render only the inventory items template
+        return render_template('mtg/partials/inventory_items.html', inventory=inventory_data)
+    else:
+        # Render the full inventory page
+        return render_template('mtg/inventory.html', inventory=inventory_data, pagination=pagination)
 
 @mtg_bp.route('/decks')
 def decks():
