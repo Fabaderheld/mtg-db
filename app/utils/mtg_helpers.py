@@ -560,7 +560,8 @@ def find_card_for_import(name: str, edition: str) -> Optional['MtgCard']:
     # Search for the card
     query = MtgCard.query.filter(MtgCard.name.ilike(f'%{name}%'))
     if mtg_set:
-        query = query.filter(MtgCard.set_code == mtg_set.id)
+        # Fix: Use set_code instead of set id
+        query = query.filter(MtgCard.set_code == mtg_set.code)
 
     card = query.first()
 
@@ -570,50 +571,38 @@ def find_card_for_import(name: str, edition: str) -> Optional['MtgCard']:
     # If not found locally, use the existing function to fetch from API
     search_results = fetch_and_cache_mtg_cards(
         card_name=name,
-        selected_sets=[edition] if edition else None,
+        selected_sets=[mtg_set.code] if mtg_set else None,  # Also fix this line
         per_page=1
     )
 
     return search_results[0] if search_results and len(search_results) > 0 else None
 
-def parse_moxfield_line(line: str) -> Optional[Dict[str, str]]:
-    """
-    Parse a single line from Moxfield deck format.
-    Format: quantity Name (SET) collector_number
-    Example: 1 Act of Treason (M20) 124
-    """
-    line = line.strip()
-    if not line:
-        return None
-
-    # Regex pattern to match: quantity name (set) collector_number
-    pattern = r'^(\d+)\s+(.+?)\s+\(([^)]+)\)\s+(\S+)$'
-    match = re.match(pattern, line)
-
-    if not match:
-        return None
-
-    quantity, name, set_code, collector_number = match.groups()
-
-    return {
-        'quantity': int(quantity),
-        'name': name.strip(),
-        'set_code': set_code.strip(),
-        'collector_number': collector_number.strip()
-    }
-
 def parse_moxfield_deck(deck_text: str) -> List[Dict[str, str]]:
     """
     Parse a complete Moxfield deck list.
+    Each line should be in the format: quantity Name (SET) collector_number
+    Example: 1 Act of Treason (M20) 124
+
     Returns a list of card dictionaries.
     """
+    pattern = r'^(\d+)\s+(.+?)\s+\(([^)]+)\)\s+(\S+)$'
     cards = []
     lines = deck_text.strip().split('\n')
 
     for line in lines:
-        card = parse_moxfield_line(line)
-        if card:
-            cards.append(card)
+        line = line.strip()
+        if not line:
+            continue
+        match = re.match(pattern, line)
+        if not match:
+            continue
+        quantity, name, set_code, collector_number = match.groups()
+        cards.append({
+            'quantity': int(quantity),
+            'name': name.strip(),
+            'set_code': set_code.strip(),
+            'collector_number': collector_number.strip()
+        })
 
     return cards
 

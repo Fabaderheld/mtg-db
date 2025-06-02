@@ -14,14 +14,15 @@ from flask import (
     url_for
 )
 
-from ...models import MtgCard, MtgSet, db, MtgInventoryEntry
+from ...models import MtgCard, MtgSet, db, MtgInventoryEntry, MtgDeckCard, MtgDeck
 from ...utils.mtg_helpers import (
     download_mtg_image,
     fetch_and_cache_mtg_cards,
     fetch_and_cache_mtg_symbols,
     fetch_and_cache_reprints,
     find_card_for_import,
-    parse_csv_content
+    parse_csv_content,
+    import_moxfield_deck
 )
 
 mtg_bp = Blueprint("mtg", __name__, url_prefix="/mtg")
@@ -371,16 +372,85 @@ def deck_detail(deck_id):
 @login_required
 def import_deck():
     if request.method == 'POST':
-        name = request.form.get('name')
-        description = request.form.get('description')
-        # Add more fields as needed
-        # Example: cards = request.form.getlist('cards')
-        if not name:
-            flash("Deck name is required.", "danger")
-            return render_template('mtg/deck_form.html', mode='create')
-        deck = MtgDeck(name=name, description=description, user_id=current_user.id)
-        db.session.add(deck)
-        db.session.commit()
-        flash("Deck created successfully.", "success")
-        return redirect(url_for('mtg.decks'))
-    return render_template('mtg/import_deck.html', mode='create')
+        logging.info(f"User {current_user.id} started deck import process")
+
+        pasted_data = request.form.get('import_deck')
+        deck_name = request.form.get('deck_name', 'Imported Deck')
+        deck_description = request.form.get('deck_description', '')
+        uploaded_file = request.files.get('csv_file')
+
+        logging.debug(f"Import parameters - Deck name: '{deck_name}', Description length: {len(deck_description)}")
+
+        if not pasted_data and not uploaded_file:
+            # If no data provided, log and flash a warning
+            logging.warning(f"User {current_user.id} attempted deck import without providing deck data")
+            flash("Please provide deck data.", "warning")
+            return render_template('mtg/import_deck.html')
+
+        try:
+            logging.info(f"Parsing Moxfield deck data for user {current_user.id}")
+            if pasted_data:
+                # If pasted data is provided, parse it
+                logging.debug("Parsing pasted deck data")
+                result = import_moxfield_deck(pasted_data)
+
+            if uploaded_file:
+                # If a file is uploaded, read and parse it
+                logging.debug(f"Reading uploaded file: {uploaded_file.filename}")
+                deck_text = uploaded_file.read().decode('utf-8')
+                result = import_moxfield_deck(deck_text)
+
+
+            logging.info(f"Successfully parsed {result['unique_cards']} unique cards ({result['total_cards']} total)")
+
+            # 1. Create the new deck
+            logging.debug(f"Creating new deck '{deck_name}' for user {current_user.id}")
+            new_deck = MtgDeck(
+                user_id=current_user.id,
+                name=deck_name,
+                description=deck_description
+            )
+            db.session.add(new_deck)
+            db.session.flush()  # Get new_deck.id
+            logging.info(f"Created new deck with ID {new_deck.id}")
+
+            # 2. Add cards to the deck
+            added_count = 0
+            skipped_count = 0
+
+            logging.info(f"Processing {len(result['cards'])} card entries for deck {new_deck.id}")
+
+            for card_data in result['cards']:
+                logging.debug(f"Processing card: {card_data['name']} ({card_data['set_code']}) x{card_data['quantity']}")
+
+                mtg_card = find_card_for_import(card_data['name'], card_data['set_code'])
+                if mtg_card:
+                    logging.debug(f"Found card {mtg_card.id} for '{card_data['name']}'")
+                    deck_entry = MtgDeckCard(
+                        deck_id=new_deck.id,
+                        card_id=mtg_card.id,
+                        quantity=card_data['quantity']
+                    )
+                    db.session.add(deck_entry)
+                    added_count += card_data['quantity']
+                else:
+                    logging.warning(f"Card not found: '{card_data['name']}' from set '{card_data['set_code']}'")
+                    flash(f"Card '{card_data['name']}' from set '{card_data['set_code']}' not found.", "warning")
+                    skipped_count += 1
+
+            # 3. Commit and redirect
+            logging.info(f"Committing deck import - Added {added_count} cards, skipped {skipped_count} cards")
+            db.session.commit()
+
+            logging.info(f"Successfully imported deck '{new_deck.name}' (ID: {new_deck.id}) for user {current_user.id}")
+            flash(f"Successfully imported deck '{new_deck.name}' with {added_count} cards.", "success")
+            return redirect(url_for('mtg.deck_detail', deck_id=new_deck.id))
+
+        except Exception as e:
+            logging.error(f"Error importing deck for user {current_user.id}: {str(e)}", exc_info=True)
+            db.session.rollback()
+            flash(f"Error importing deck: {str(e)}", "danger")
+            return render_template('mtg/import_deck.html')
+
+    logging.debug(f"User {current_user.id} accessed deck import page (GET request)")
+    return render_template('mtg/import_deck.html')
