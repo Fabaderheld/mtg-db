@@ -16,7 +16,7 @@ from ..models import (
     db
 )
 
-def fetch_and_cache_mtg_sets():
+def fetch_and_cache_mtg_sets() -> None:
     try:
         logging.info("Fetching sets from Scryfall...")
         response = requests.get("https://api.scryfall.com/sets")
@@ -64,7 +64,7 @@ def fetch_and_cache_mtg_sets():
         logging.error(f"Error fetching MTG sets: {e}")
         db.session.rollback()
 
-def download_mtg_image(url, filename):
+def download_mtg_image(url: str, filename: str) -> bool:
     """
     Downloads an MTG card image from the provided URL
     """
@@ -88,16 +88,16 @@ def download_mtg_image(url, filename):
         return False
 
 def fetch_and_cache_mtg_cards(
-    card_id=None,  # Add card_id parameter
-    card_name=None,
-    card_type=None,
-    selected_colors=None,
-    selected_sets=None,
-    search_string=None,
-    unique_cards=True,
-    page=1,
-    per_page=20
-):
+    card_id: Optional[str] = None,
+    card_name: Optional[str] = None,
+    card_type: Optional[str] = None,
+    selected_colors: Optional[List[str]] = None,
+    selected_sets: Optional[List[str]] = None,
+    search_string: Optional[str] = None,
+    unique_cards: bool = True,
+    page: int = 1,
+    per_page: int = 20
+) -> List['MtgCard']:
     try:
         logging.info(f"MTG Card Query - ID: {card_id}, Name: {card_name}, Type: {card_type}, "
                     f"Colors: {selected_colors}, Sets: {selected_sets}, Search: {search_string}, "
@@ -372,7 +372,7 @@ def fetch_and_cache_mtg_cards(
         db.session.rollback()
         return []
 
-def fetch_and_cache_mtg_symbols():
+def fetch_and_cache_mtg_symbols() -> Dict[str, str]:
     response = requests.get("https://api.scryfall.com/symbology")
     symbols = {}
     if response.status_code == 200:
@@ -392,7 +392,7 @@ def fetch_and_cache_mtg_symbols():
             symbols[symbol_code] = f"images/mtg_symbols/{filename}"
     return symbols
 
-def mtg_card_to_dict(card):
+def mtg_card_to_dict(card: 'MtgCard') -> Dict[str, any]:
     """Convert a single MTG card to dictionary"""
     return {
         'id': card.id,
@@ -433,7 +433,7 @@ def mtg_card_to_dict(card):
         } if card.set else None
     }
 
-def fetch_and_cache_reprints(card):
+def fetch_and_cache_reprints(card: 'MtgCard') -> List['MtgCard']:
     if not card.prints_search_uri:
         return []
 
@@ -464,7 +464,7 @@ def fetch_and_cache_reprints(card):
         logging.warning(f"Scryfall fetch failed: {response.status_code}")
         return []
 
-def scryfall_card_to_dict(card_data):
+def scryfall_card_to_dict(card_data: dict) -> dict:
     set_code = card_data.get('set')
     card_set = MtgSet.query.filter_by(code=set_code).first() if set_code else None
 
@@ -503,7 +503,7 @@ def scryfall_card_to_dict(card_data):
         } if card_set else None
     }
 
-def parse_csv_content(file_content):
+def parse_csv_content(file_content: str) -> List[Dict[str, str]]:
     try:
         csv_data = StringIO(file_content)
         reader = csv.DictReader(csv_data)
@@ -538,7 +538,7 @@ def parse_csv_content(file_content):
     except Exception as e:
         raise ValueError(f"Error parsing CSV: {e}")
 
-def find_card_for_import(name, edition):
+def find_card_for_import(name: str, edition: str) -> Optional['MtgCard']:
     """
     Find a specific card by name and edition for import purposes.
     Returns the first matching card or None if not found.
