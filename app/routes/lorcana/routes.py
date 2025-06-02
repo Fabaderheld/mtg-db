@@ -86,7 +86,7 @@ def card_detail(card_id):
 
     card_set = card.set if card.set else None
     # mana_icons = fetch_and_cache__mana_icons()  # Fetch mana icons from Scryfall API
-    # reprints = fetch_mtg_reprints(card)  # Fetch reprints from Scryfall API
+    # reprints = fetch_and_cache_reprints(card)  # Fetch reprints from Scryfall API
     # logging.info(f"Reprints found: {reprints}")
     rendered_html = render_template('lorcana/card_detail.html', card=card, card_set=card_set)
     logging.debug(rendered_html)
@@ -215,4 +215,3 @@ def import_inventory():
         return render_template('lorcana/import.html')
 
     return render_template('lorcana/import.html')
-

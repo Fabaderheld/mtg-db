@@ -17,7 +17,7 @@ from ..utils.mtg_helpers import (
     download_mtg_image,
     fetch_and_cache_mtg_cards,
     fetch_and_cache_mtg_mana_icons,
-    fetch_mtg_reprints
+    fetch_and_cache_reprints
 )
 
 card_bp = Blueprint("cards", __name__)
@@ -104,7 +104,7 @@ def card_detail(card_id):
 
     card_set = card.set if card.set else None
     mana_icons = fetch_and_cache_mtg_mana_icons()  # Fetch mana icons from Scryfall API
-    reprints = fetch_mtg_reprints(card)  # Fetch reprints from Scryfall API
+    reprints = fetch_and_cache_reprints(card)  # Fetch reprints from Scryfall API
     logging.info(f"Reprints found: {reprints}")
 
     return render_template('card_detail.html', card=card, card_set=card_set, mana_icons=mana_icons, reprints=reprints)
