@@ -294,3 +294,73 @@ def fetch_lorcana_versions(card):
 
     versions = fetch_and_cache_lorcana_cards(card_name=card.name)
     return [lorcana_card_to_dict(version) for version in versions if version.id != card.id]
+
+def parse_csv_content(file_content):
+    try:
+        csv_data = StringIO(file_content)
+        reader = csv.DictReader(csv_data)
+        cards = []
+
+        # Check if required columns exist
+        required_columns = ['Count', 'Name', 'Edition']
+        if not all(col in reader.fieldnames for col in required_columns):
+            missing = [col for col in required_columns if col not in reader.fieldnames]
+            raise ValueError(f"Missing required columns: {missing}")
+
+        for row_num, row in enumerate(reader, start=2):  # Start at 2 because row 1 is header
+            try:
+                card_data = {
+                    'count': int(row['Count']) if row['Count'] else 0,
+                    'name': row['Name'].strip(),
+                    'edition': row['Edition'].strip()
+                }
+
+                # Skip rows with empty names
+                if not card_data['name']:
+                    continue
+
+                cards.append(card_data)
+
+            except ValueError as e:
+                print(f"Error parsing row {row_num}: {e}")
+                continue
+
+        return cards
+
+    except Exception as e:
+        raise ValueError(f"Error parsing CSV: {e}")
+
+def find_card_for_import(name, edition):
+    """
+    Find a specific card by name and edition for import purposes.
+    Returns the first matching card or None if not found.
+    """
+
+    # Try to find the set first
+    mtg_set = None
+    if edition:
+        mtg_set = MtgSet.query.filter(
+            db.or_(
+                MtgSet.name.ilike(f'%{edition}%'),
+                MtgSet.code.ilike(f'%{edition}%')
+            )
+        ).first()
+
+    # Search for the card
+    query = MtgCard.query.filter(MtgCard.name.ilike(f'%{name}%'))
+    if mtg_set:
+        query = query.filter(MtgCard.set_code == mtg_set.id)
+
+    card = query.first()
+
+    if card:
+        return card
+
+    # If not found locally, use the existing function to fetch from API
+    search_results = fetch_and_cache_mtg_cards(
+        card_name=name,
+        selected_sets=[edition] if edition else None,
+        per_page=1
+    )
+
+    return search_results[0] if search_results and len(search_results) > 0 else None

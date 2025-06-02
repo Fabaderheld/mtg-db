@@ -1,23 +1,83 @@
 {% extends "lorcana/base.html" %}
 
 {% block content %}
-<h1>Lorcana Inventory</h1>
-<table class="table">
-    <thead>
-        <tr>
-            <th>Card Name</th>
-            <th>Set</th>
-            <th>Quantity</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for item in inventory %}
-        <tr>
-            <td>{{ item.card.name }}</td>
-            <td>{{ item.card.set.name }}</td>
-            <td>{{ item.quantity }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+
+<body class="no-loading-indicator">
+    <h1 class="mb-4">Lorcana Inventory</h1>
+    <a href="{{ url_for('lorcana.import_inventory') }}">
+        <button class="btn btn-dark my-2 my-sm-0" type="submit">Import</button>
+    </a>
+    <table class="table mt-4">
+        <thead>
+            <tr>
+                <th>Image</th>
+                <th>Card Name</th>
+                <th>Set</th>
+                <th>Quantity</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="inventory-items">
+            {% include 'lorcana/partials/inventory_items.html' %} <tr>
+        </tbody>
+    </table>
+
+    <a href="{{ url_for('lorcana.search') }}" class="btn btn-primary">Search for New Cards</a>
+
+</body>
+
+<script src="{{ url_for('static', filename='js/infinite_scroll.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tooltip = document.createElement('div');
+        tooltip.classList.add('card-preview-tooltip');
+        document.body.appendChild(tooltip);
+
+        document.querySelectorAll('[data-image]').forEach(link => {
+            link.addEventListener('mouseover', function (event) {
+                const imageURL = this.getAttribute('data-image');
+                if (imageURL) {
+                    const img = new Image();
+                    tooltip.innerHTML = 'Loading...';
+                    tooltip.style.display = 'block';
+                    updateTooltipPosition(event);
+
+                    img.onload = function () {
+                        tooltip.innerHTML = '';
+                        tooltip.appendChild(img);
+                    };
+                    img.onerror = function () {
+                        tooltip.innerHTML = 'Image failed to load';
+                    };
+                    img.src = imageURL;
+                }
+            });
+
+            link.addEventListener('mousemove', updateTooltipPosition);
+
+            link.addEventListener('mouseout', function () {
+                tooltip.style.display = 'none';
+            });
+        });
+
+        function updateTooltipPosition(event) {
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            let left = event.pageX + 20;
+            let top = event.pageY + 20;
+
+            if (left + tooltipRect.width > viewportWidth) {
+                left = event.pageX - tooltipRect.width - 20;
+            }
+            if (top + tooltipRect.height > viewportHeight) {
+                top = event.pageY - tooltipRect.height - 20;
+            }
+
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        }
+    });
+</script>
 {% endblock %}
