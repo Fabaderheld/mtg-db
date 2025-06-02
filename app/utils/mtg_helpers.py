@@ -7,6 +7,9 @@ import requests
 from flask import current_app
 import csv
 from io import StringIO
+import re
+from typing import List, Dict, Optional
+
 
 from ..models import (
     MtgCard,
@@ -572,3 +575,60 @@ def find_card_for_import(name: str, edition: str) -> Optional['MtgCard']:
     )
 
     return search_results[0] if search_results and len(search_results) > 0 else None
+
+def parse_moxfield_line(line: str) -> Optional[Dict[str, str]]:
+    """
+    Parse a single line from Moxfield deck format.
+    Format: quantity Name (SET) collector_number
+    Example: 1 Act of Treason (M20) 124
+    """
+    line = line.strip()
+    if not line:
+        return None
+
+    # Regex pattern to match: quantity name (set) collector_number
+    pattern = r'^(\d+)\s+(.+?)\s+\(([^)]+)\)\s+(\S+)$'
+    match = re.match(pattern, line)
+
+    if not match:
+        return None
+
+    quantity, name, set_code, collector_number = match.groups()
+
+    return {
+        'quantity': int(quantity),
+        'name': name.strip(),
+        'set_code': set_code.strip(),
+        'collector_number': collector_number.strip()
+    }
+
+def parse_moxfield_deck(deck_text: str) -> List[Dict[str, str]]:
+    """
+    Parse a complete Moxfield deck list.
+    Returns a list of card dictionaries.
+    """
+    cards = []
+    lines = deck_text.strip().split('\n')
+
+    for line in lines:
+        card = parse_moxfield_line(line)
+        if card:
+            cards.append(card)
+
+    return cards
+
+def import_moxfield_deck(deck_text: str) -> Dict[str, any]:
+    """
+    Import a Moxfield deck and return summary statistics.
+    """
+    cards = parse_moxfield_deck(deck_text)
+
+    total_cards = sum(card['quantity'] for card in cards)
+    unique_cards = len(cards)
+
+    return {
+        'cards': cards,
+        'total_cards': total_cards,
+        'unique_cards': unique_cards,
+        'success': True
+    }
