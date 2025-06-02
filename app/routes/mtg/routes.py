@@ -258,3 +258,129 @@ def import_inventory():
         return render_template('mtg/import.html')
 
     return render_template('mtg/import.html')
+
+@mtg_bp.route('/update_quantity/<int:entry_id>', methods=['POST'])
+@login_required
+def update_quantity(entry_id):
+    entry = MtgInventoryEntry.query.get_or_404(entry_id)
+    if entry.user_id != current_user.id:
+        flash("You do not have permission to modify this entry.", "danger")
+        return redirect(url_for('mtg.inventory'))
+
+    try:
+        quantity = int(request.form['quantity'])
+        if quantity < 0:
+            flash("Quantity must be a non-negative number.", "danger")
+            return redirect(request.referrer or url_for('mtg.inventory'))
+        entry.quantity = quantity
+        db.session.commit()
+        flash("Quantity updated successfully.", "success")
+    except ValueError:
+        flash("Invalid quantity.", "danger")
+    return redirect(request.referrer or url_for('mtg.inventory'))
+
+@mtg_bp.route('/delete_from_inventory/<int:entry_id>', methods=['POST'])
+@login_required
+def delete_from_inventory(entry_id):
+    entry = MtgInventoryEntry.query.get_or_404(entry_id)
+    if entry.user_id != current_user.id:
+        flash("You do not have permission to delete this entry.", "danger")
+        return redirect(url_for('mtg.inventory'))
+
+    db.session.delete(entry)
+    db.session.commit()
+    flash("Card deleted from your inventory.", "success")
+    return redirect(url_for('mtg.inventory'))
+
+@mtg_bp.route('/search')
+@login_required
+def search():
+    # Render a search form or redirect to your existing search route
+    return render_template('mtg/search.html')  # Or redirect to your existing search route
+
+@mtg_bp.route('/add_to_inventory', methods=['POST'])
+@login_required
+def add_to_inventory():
+    card_id = request.form.get('id')
+    # You can add more fields if needed, but only card_id is required for inventory
+    if not card_id:
+        flash("No card ID provided.", "danger")
+        return redirect(request.referrer or url_for('mtg.index'))
+
+    # Check if the user already has this card in inventory
+    entry = MtgInventoryEntry.query.filter_by(user_id=current_user.id, card_id=card_id).first()
+    if entry:
+        entry.quantity += 1
+        flash("Added another copy to your inventory.", "success")
+    else:
+        entry = MtgInventoryEntry(user_id=current_user.id, card_id=card_id, quantity=1)
+        db.session.add(entry)
+        flash("Card added to your inventory.", "success")
+    db.session.commit()
+    return redirect(request.referrer or url_for('mtg.index'))
+
+@mtg_bp.route('/import', methods=['POST'])
+def import_invetory():
+    return render_template('mtg/import.html')
+
+from ...models import MtgDeck  # Assuming you have a deck model
+
+@mtg_bp.route('/decks/new', methods=['GET', 'POST'])
+@login_required
+def create_deck():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        # Add more fields as needed
+        # Example: cards = request.form.getlist('cards')
+        if not name:
+            flash("Deck name is required.", "danger")
+            return render_template('mtg/deck_form.html', mode='create')
+        deck = MtgDeck(name=name, description=description, user_id=current_user.id)
+        db.session.add(deck)
+        db.session.commit()
+        flash("Deck created successfully.", "success")
+        return redirect(url_for('mtg.decks'))
+    return render_template('mtg/deck_form.html', mode='create')
+
+@mtg_bp.route('/decks/<int:deck_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_deck(deck_id):
+    deck = MtgDeck.query.get_or_404(deck_id)
+    if deck.user_id != current_user.id:
+        flash("You do not have permission to edit this deck.", "danger")
+        return redirect(url_for('mtg.decks'))
+    if request.method == 'POST':
+        deck.name = request.form.get('name')
+        deck.description = request.form.get('description')
+        # Update cards or other fields as needed
+        db.session.commit()
+        flash("Deck updated successfully.", "success")
+        return redirect(url_for('mtg.decks'))
+    return render_template('mtg/deck_form.html', deck=deck, mode='edit')
+
+@mtg_bp.route('/decks/<int:deck_id>')
+@login_required
+def deck_detail(deck_id):
+    deck = MtgDeck.query.get_or_404(deck_id)
+    # Optionally, fetch cards in the deck, etc.
+    return render_template('mtg/deck_detail.html', deck=deck)
+
+
+@mtg_bp.route('/decks/import', methods=['GET', 'POST'])
+@login_required
+def import_deck():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        # Add more fields as needed
+        # Example: cards = request.form.getlist('cards')
+        if not name:
+            flash("Deck name is required.", "danger")
+            return render_template('mtg/deck_form.html', mode='create')
+        deck = MtgDeck(name=name, description=description, user_id=current_user.id)
+        db.session.add(deck)
+        db.session.commit()
+        flash("Deck created successfully.", "success")
+        return redirect(url_for('mtg.decks'))
+    return render_template('mtg/import_deck.html', mode='create')

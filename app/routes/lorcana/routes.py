@@ -141,6 +141,7 @@ def inventory():
         return render_template('lorcana/inventory.html', inventory=inventory_data, pagination=pagination)
 
 @lorcana_bp.route('/decks')
+@login_required
 def decks():
     # TODO: Fetch MTG deck data for the user
     decks_data = []  # Replace with actual data
@@ -215,3 +216,67 @@ def import_inventory():
         return render_template('lorcana/import.html')
 
     return render_template('lorcana/import.html')
+
+@lorcana_bp.route('/update_quantity/<int:entry_id>', methods=['POST'])
+@login_required
+def update_quantity(entry_id):
+    entry = LorcanaInventoryEntry.query.get_or_404(entry_id)
+    if entry.user_id != current_user.id:
+        flash("You do not have permission to modify this entry.", "danger")
+        return redirect(url_for('mtg.inventory'))
+
+    try:
+        quantity = int(request.form['quantity'])
+        if quantity < 0:
+            flash("Quantity must be a non-negative number.", "danger")
+            return redirect(request.referrer or url_for('mtg.inventory'))
+        entry.quantity = quantity
+        db.session.commit()
+        flash("Quantity updated successfully.", "success")
+    except ValueError:
+        flash("Invalid quantity.", "danger")
+    return redirect(request.referrer or url_for('mtg.inventory'))
+
+@lorcana_bp.route('/delete_from_inventory/<int:entry_id>', methods=['POST'])
+@login_required
+def delete_from_inventory(entry_id):
+    entry = LorcanaInventoryEntry.query.get_or_404(entry_id)
+    if entry.user_id != current_user.id:
+        flash("You do not have permission to delete this entry.", "danger")
+        return redirect(url_for('mtg.inventory'))
+
+    db.session.delete(entry)
+    db.session.commit()
+    flash("Card deleted from your inventory.", "success")
+    return redirect(url_for('mtg.inventory'))
+
+@lorcana_bp.route('/search')
+@login_required
+def search():
+    # Render a search form or redirect to your existing search route
+    return render_template('mtg/search.html')  # Or redirect to your existing search route
+
+@lorcana_bp.route('/add_to_inventory', methods=['POST'])
+@login_required
+def add_to_inventory():
+    card_id = request.form.get('id')
+    # You can add more fields if needed, but only card_id is required for inventory
+    if not card_id:
+        flash("No card ID provided.", "danger")
+        return redirect(request.referrer or url_for('mtg.index'))
+
+    # Check if the user already has this card in inventory
+    entry = LorcanaInventoryEntry.query.filter_by(user_id=current_user.id, card_id=card_id).first()
+    if entry:
+        entry.quantity += 1
+        flash("Added another copy to your inventory.", "success")
+    else:
+        entry = LorcanaInventoryEntry(user_id=current_user.id, card_id=card_id, quantity=1)
+        db.session.add(entry)
+        flash("Card added to your inventory.", "success")
+    db.session.commit()
+    return redirect(request.referrer or url_for('mtg.index'))
+
+@lorcana_bp.route('/import', methods=['POST'])
+def import_invetory():
+    return render_template('mtg/import.html')
