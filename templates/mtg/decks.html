@@ -1,12 +1,17 @@
 {% extends "mtg/base.html" %}
-
 {% block content %}
-<h1>MTG Decks</h1>
+<h1>Your Decks</h1>
+<a href="{{ url_for('mtg.create_deck') }}">Create New Deck</a>
 <ul>
     {% for deck in decks %}
     <li>
-        <a href="#">{{ deck.name }}</a>
+        <a href="{{ url_for('mtg.deck_detail', deck_id=deck.id) }}">{{ deck.name }}</a>
+        {% if current_user.is_authenticated and deck.user_id == current_user.id %}
+        (<a href="{{ url_for('mtg.edit_deck', deck_id=deck.id) }}">Edit</a>)
+        {% endif %}
     </li>
+    {% else %}
+    <li>No decks found.</li>
     {% endfor %}
 </ul>
 {% endblock %}

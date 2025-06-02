@@ -1,0 +1,20 @@
+{% extends "mtg/base.html" %}
+{% block content %}
+<h1>{{ 'Create New Deck' if mode == 'create' else 'Edit Deck' }}</h1>
+<a href="{{ url_for('mtg.import_deck') }}">
+    <button class="btn btn-dark my-2 my-sm-0" type="submit">Import</button>
+</a>
+<form method="post">
+    <div>
+        <label for="name">Deck Name:</label>
+        <input type="text" id="name" name="name" value="{{ deck.name if deck else '' }}" required>
+    </div>
+    <div>
+        <label for="description">Description:</label>
+        <textarea id="description" name="description">{{ deck.description if deck else '' }}</textarea>
+    </div>
+    <!-- Add card selection fields here if needed -->
+    <button type="submit">{{ 'Create Deck' if mode == 'create' else 'Save Changes' }}</button>
+    <a href="{{ url_for('mtg.decks') }}">Cancel</a>
+</form>
+{% endblock %}
