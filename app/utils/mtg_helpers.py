@@ -104,7 +104,8 @@ def fetch_and_cache_mtg_cards(
     try:
         logging.info(f"MTG Card Query - ID: {card_id}, Name: {card_name}, Type: {card_type}, "
                     f"Colors: {selected_colors}, Sets: {selected_sets}, Search: {search_string}, "
-                    f"Unique: {unique_cards}, Page: {page}")
+                    f"Unique: {unique_cards}, Page: {page}, Per Page: {per_page}")
+
         # If card_id is provided, fetch a single card by ID
         if card_id:
             logging.info(f"Querying database for card ID: {card_id}")
@@ -249,126 +250,136 @@ def fetch_and_cache_mtg_cards(
 
         # If we have enough cards for this page, return them
         if len(paginated_cards) == per_page:
+            logging.info(f"Returning {len(paginated_cards)} cards from database")
             return paginated_cards
 
-        # If we need to fetch from Scryfall
-        url = f"https://api.scryfall.com/cards/search"
-        params = {
-            'q': query or 'set:default',
-            'page': page
-        }
+        # If we don't have enough cards locally, check if we should fetch from Scryfall
+        # Only fetch from Scryfall if this is page 1 or if we have some cards but not enough
+        if page == 1 or len(paginated_cards) > 0:
+            logging.info(f"Only found {len(paginated_cards)} cards locally, fetching from Scryfall")
 
-        response = requests.get(url, params=params)
-        if response.status_code != 200:
-            logging.warning(f"Scryfall fetch failed: {response.status_code}")
-            return paginated_cards
-        else:
-            logging.info(f"Scryfall fetch successful: {response.status_code}")
+            # Fetch from Scryfall
+            url = f"https://api.scryfall.com/cards/search"
+            params = {
+                'q': query or 'set:default',
+                'page': 1  # Always fetch page 1 from Scryfall to get fresh data
+            }
 
-        data = response.json()
-        cards = data.get("data", [])
-        logging.info(f"Retrieved {len(cards)} cards from Scryfall")
-        new_cards = []
+            response = requests.get(url, params=params)
+            if response.status_code != 200:
+                logging.warning(f"Scryfall fetch failed: {response.status_code}")
+                return paginated_cards
 
-        for card_data in cards:
-            # Skip if card exists
-            if MtgCard.query.get(card_data["id"]):
-                logging.debug(f"Card {card_data['id']} already exists in the database, skipping.")
-                continue
-            else:
-                logging.debug(f"Processing new card: {card_data['name']}")
+            data = response.json()
+            cards = data.get("data", [])
+            logging.info(f"Retrieved {len(cards)} cards from Scryfall")
 
-                # Process image
-                image_url = card_data.get("image_uris", {}).get("normal")
-                local_image_path = None
-                if image_url:
-                    filename = f"{card_data['id']}.jpg"
-                    save_dir = os.path.join(current_app.static_folder, current_app.config['MTG_UPLOAD_FOLDER'])
-                    os.makedirs(save_dir, exist_ok=True)
-                    save_path = os.path.join(save_dir, filename)
+            # Process and save new cards (limit to avoid processing too many)
+            processed_count = 0
+            max_process = per_page * 3  # Process at most 3 pages worth of cards
 
-                    if download_mtg_image(image_url, save_path):
-                        local_image_path = f"{current_app.config['MTG_IMAGE_PATH']}/{filename}"
+            for card_data in cards:
+                if processed_count >= max_process:
+                    break
 
-                # Process colors
-                colors = []
-                for color_name in card_data.get("colors", []):
-                    color = MtgColor.query.filter_by(name=color_name).first()
-                    if not color:
-                        color_id = f"color_{color_name}"
-                        color = MtgColor(id=color_id, name=color_name)
-                        db.session.add(color)
-                    colors.append(color)
+                # Skip if card exists
+                if MtgCard.query.get(card_data["id"]):
+                    logging.debug(f"Card {card_data['id']} already exists in the database, skipping.")
+                    continue
+                else:
+                    logging.debug(f"Processing new card: {card_data['name']}")
 
-                # Process types
-                types = []
-                if card_data.get("type_line"):
-                    type_parts = card_data.get("type_line").split("—")
-                    if len(type_parts) > 0:
-                        main_types = type_parts[0].strip().split()
-                        for type_name in main_types:
-                            type_obj = MtgType.query.filter_by(name=type_name).first()
-                            if not type_obj:
-                                type_id = f"type_{type_name.lower()}"
-                                type_obj = MtgType(id=type_id, name=type_name)
-                                db.session.add(type_obj)
-                            types.append(type_obj)
+                    # Process image
+                    image_url = card_data.get("image_uris", {}).get("normal")
+                    local_image_path = None
+                    if image_url:
+                        filename = f"{card_data['id']}.jpg"
+                        save_dir = os.path.join(current_app.static_folder, current_app.config['MTG_UPLOAD_FOLDER'])
+                        os.makedirs(save_dir, exist_ok=True)
+                        save_path = os.path.join(save_dir, filename)
 
-                # Get or create set
-                card_set = None
-                if 'set' in card_data:
-                    card_set = MtgSet.query.filter_by(code=card_data['set']).first()
+                        if download_mtg_image(image_url, save_path):
+                            local_image_path = f"{current_app.config['MTG_IMAGE_PATH']}/{filename}"
 
-                # Create new card
-                new_card = MtgCard(
-                    id=card_data["id"],
-                    oracle_id=card_data.get("oracle_id"),
-                    name=card_data["name"],
-                    layout=card_data.get("layout"),
-                    type_line=card_data.get("type_line"),
-                    mana_cost=card_data.get("mana_cost"),
-                    cmc=card_data.get("cmc"),
-                    oracle_text=card_data.get("oracle_text"),
-                    power=card_data.get("power"),
-                    toughness=card_data.get("toughness"),
-                    loyalty=card_data.get("loyalty"),
-                    rarity=card_data.get("rarity"),
-                    collector_number=card_data.get("collector_number"),
-                    set_code=card_data.get("set"),
-                    lang=card_data.get("lang"),
-                    released_at=card_data.get("released_at"),
-                    mana_costs=card_data.get("mana_cost"),
-                    image_uri=image_url,
-                    local_image_path=local_image_path,
-                    scryfall_uri=card_data.get("scryfall_uri"),
-                    rulings_uri=card_data.get("rulings_uri"),
-                    legalities=json.dumps(card_data.get("legalities", {})),
-                    prints_search_uri=card_data.get("prints_search_uri")
-                )
+                    # Process colors
+                    colors = []
+                    for color_name in card_data.get("colors", []):
+                        color = MtgColor.query.filter_by(name=color_name).first()
+                        if not color:
+                            color_id = f"color_{color_name}"
+                            color = MtgColor(id=color_id, name=color_name)
+                            db.session.add(color)
+                        colors.append(color)
 
-                new_card.colors = colors
-                new_card.types = types
-                if card_set:
-                    new_card.set = card_set
+                    # Process types
+                    types = []
+                    if card_data.get("type_line"):
+                        type_parts = card_data.get("type_line").split("—")
+                        if len(type_parts) > 0:
+                            main_types = type_parts[0].strip().split()
+                            for type_name in main_types:
+                                type_obj = MtgType.query.filter_by(name=type_name).first()
+                                if not type_obj:
+                                    type_id = f"type_{type_name.lower()}"
+                                    type_obj = MtgType(id=type_id, name=type_name)
+                                    db.session.add(type_obj)
+                                types.append(type_obj)
 
-                db.session.add(new_card)
-                try:
-                    db.session.commit()
-                    logging.info(f"Added new MTG card {card_data['id']} to database")
-                    new_cards.append(new_card)
-                except Exception as e:
-                    logging.error(f"Error committing MTG card to database: {e}")
-                    db.session.rollback()
-                    return paginated_cards
+                    # Get or create set
+                    card_set = None
+                    if 'set' in card_data:
+                        card_set = MtgSet.query.filter_by(code=card_data['set']).first()
 
-        # Query again with pagination to get the complete set
-        final_cards = db_query.order_by(MtgCard.name).offset((page - 1) * per_page).limit(per_page).all()
+                    # Create new card
+                    new_card = MtgCard(
+                        id=card_data["id"],
+                        oracle_id=card_data.get("oracle_id"),
+                        name=card_data["name"],
+                        layout=card_data.get("layout"),
+                        type_line=card_data.get("type_line"),
+                        mana_cost=card_data.get("mana_cost"),
+                        cmc=card_data.get("cmc"),
+                        oracle_text=card_data.get("oracle_text"),
+                        power=card_data.get("power"),
+                        toughness=card_data.get("toughness"),
+                        loyalty=card_data.get("loyalty"),
+                        rarity=card_data.get("rarity"),
+                        collector_number=card_data.get("collector_number"),
+                        set_code=card_data.get("set"),
+                        lang=card_data.get("lang"),
+                        released_at=card_data.get("released_at"),
+                        mana_costs=card_data.get("mana_cost"),
+                        image_uri=image_url,
+                        local_image_path=local_image_path,
+                        scryfall_uri=card_data.get("scryfall_uri"),
+                        rulings_uri=card_data.get("rulings_uri"),
+                        legalities=json.dumps(card_data.get("legalities", {})),
+                        prints_search_uri=card_data.get("prints_search_uri")
+                    )
 
-        # If no cards found for this page, return empty list to signal end of results
-        if not final_cards:
-            return []
+                    new_card.colors = colors
+                    new_card.types = types
+                    if card_set:
+                        new_card.set = card_set
 
-        return final_cards
+                    db.session.add(new_card)
+                    try:
+                        db.session.commit()
+                        logging.info(f"Added new MTG card {card_data['id']} to database")
+                        processed_count += 1
+                    except Exception as e:
+                        logging.error(f"Error committing MTG card to database: {e}")
+                        db.session.rollback()
+                        continue
+
+            # After processing, query again for the requested page
+            final_cards = db_query.order_by(MtgCard.name).offset((page - 1) * per_page).limit(per_page).all()
+            logging.info(f"Returning {len(final_cards)} cards after Scryfall fetch")
+            return final_cards
+
+        # If this is not page 1 and we have no local cards, return empty
+        logging.info(f"No more cards available for page {page}")
+        return []
 
     except Exception as e:
         logging.error(f"Error in fetch_and_cache_mtg_cards: {e}")

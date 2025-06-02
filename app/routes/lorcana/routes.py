@@ -254,7 +254,7 @@ def delete_from_inventory(entry_id):
 @login_required
 def search():
     # Render a search form or redirect to your existing search route
-    return render_template('mtg/search.html')  # Or redirect to your existing search route
+    return render_template('lorcana/search.html')  # Or redirect to your existing search route
 
 @lorcana_bp.route('/add_to_inventory', methods=['POST'])
 @login_required
@@ -279,4 +279,4 @@ def add_to_inventory():
 
 @lorcana_bp.route('/import', methods=['POST'])
 def import_invetory():
-    return render_template('mtg/import.html')
+    return render_template('lorcana/import.html')
