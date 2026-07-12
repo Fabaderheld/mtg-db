@@ -126,8 +126,10 @@
                                 class="d-flex align-items-center text-decoration-none text-dark w-100"
                                 data-image="/{{ reprint.local_image_path }}">
                                 <span class="set-name flex-grow-1">{{ reprint.set.name }}</span>
+                                {% if reprint.set.local_icon_path %}
                                 <img src="{{ url_for('static', filename=reprint.set.local_icon_path) }}"
                                     alt="{{ reprint.set.name }} Icon" class="set-icon ms-2" />
+                                {% endif %}
                             </a>
                         </li>
                         {% endif %}

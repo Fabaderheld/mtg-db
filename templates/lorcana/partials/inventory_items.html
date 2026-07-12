@@ -16,8 +16,11 @@
             {{ item.card.name }}
         </a>
     </td>
-    <td><img src="{{ url_for('static', filename=item.card.set.local_icon_path) }}" style="max-height: 25px;"> {{
-        item.card.set.name }}
+    <td>
+        {% if item.card.set.local_icon_path %}
+        <img src="{{ url_for('static', filename=item.card.set.local_icon_path) }}" style="max-height: 25px;">
+        {% endif %}
+        {{ item.card.set.name }}
     </td>
     <td>
         <form method="post" action="{{ url_for('lorcana.update_quantity', entry_id=item.id) }}">

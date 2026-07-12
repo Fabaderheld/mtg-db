@@ -1,8 +1,10 @@
+import csv
 import json
 import logging
 import os
 import time
 import requests
+from io import StringIO
 from flask import current_app
 
 from ..models import (
@@ -65,17 +67,18 @@ def download_lorcana_image(card_id, size='normal'):
         save_dir = os.path.join(current_app.static_folder, current_app.config['LORCANA_UPLOAD_FOLDER'])
         os.makedirs(save_dir, exist_ok=True)
         save_path = os.path.join(save_dir, filename)
+        local_path = f"{current_app.config['LORCANA_IMAGE_PATH']}/{filename}"
 
         if os.path.exists(save_path):
             logging.info(f"Lorcana image already exists at {save_path}, skipping download.")
-            return f"{current_app.config['LORCANA_UPLOAD_FOLDER']}/{filename}"
+            return local_path
 
         response = requests.get(image_url)
         if response.status_code == 200:
             with open(save_path, 'wb') as f:
                 f.write(response.content)
             logging.info(f"Lorcana image downloaded and saved to {save_path}")
-            return f"{image_url}"
+            return local_path
         else:
             logging.error(f"Failed to download Lorcana image from {image_url}: {response.status_code}")
             return None
@@ -268,6 +271,7 @@ def lorcana_card_to_dict(card):
         'lang': card.lang,
         'flavor_text': card.flavor_text,
         'tcgplayer_id': card.tcgplayer_id,
+        'local_image_path': card.local_image_path,
 
         'image_uris': {
             'small': card.image_uris_small,
@@ -283,7 +287,8 @@ def lorcana_card_to_dict(card):
             'id': card.set.id,
             'code': card.set.code,
             'name': card.set.name,
-            'released_at': card.set.released_at
+            'released_at': card.set.released_at,
+            'local_icon_path': card.set.local_icon_path
         } if card.set else None
     }
 
@@ -332,24 +337,24 @@ def parse_csv_content(file_content):
 
 def find_card_for_import(name, edition):
     """
-    Find a specific card by name and edition for import purposes.
+    Find a specific Lorcana card by name and edition for import purposes.
     Returns the first matching card or None if not found.
     """
 
     # Try to find the set first
-    mtg_set = None
+    lorcana_set = None
     if edition:
-        mtg_set = MtgSet.query.filter(
+        lorcana_set = LorcanaSet.query.filter(
             db.or_(
-                MtgSet.name.ilike(f'%{edition}%'),
-                MtgSet.code.ilike(f'%{edition}%')
+                LorcanaSet.name.ilike(f'%{edition}%'),
+                LorcanaSet.code.ilike(f'%{edition}%')
             )
         ).first()
 
     # Search for the card
-    query = MtgCard.query.filter(MtgCard.name.ilike(f'%{name}%'))
-    if mtg_set:
-        query = query.filter(MtgCard.set_code == mtg_set.id)
+    query = LorcanaCard.query.filter(LorcanaCard.name.ilike(f'%{name}%'))
+    if lorcana_set:
+        query = query.filter(LorcanaCard.set_id == lorcana_set.id)
 
     card = query.first()
 
@@ -357,9 +362,9 @@ def find_card_for_import(name, edition):
         return card
 
     # If not found locally, use the existing function to fetch from API
-    search_results = fetch_and_cache_mtg_cards(
+    search_results = fetch_and_cache_lorcana_cards(
         card_name=name,
-        selected_sets=[edition] if edition else None,
+        selected_sets=[lorcana_set.id] if lorcana_set else None,
         per_page=1
     )
 

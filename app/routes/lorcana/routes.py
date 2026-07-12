@@ -18,8 +18,7 @@ from ...models import LorcanaCard, LorcanaSet, db, LorcanaInventoryEntry
 from ...utils.lorcana_helpers import (
     download_lorcana_image,
     fetch_and_cache_lorcana_cards,
-    #fetch_and_cache_lorcana_mana_icons,
-    #fetch_lorcana_reprints
+    fetch_lorcana_versions,
     find_card_for_import,
     parse_csv_content
 )
@@ -54,29 +53,62 @@ def index():
 
 @lorcana_bp.route("/sets", methods=["GET"])
 def sets():
-    sort = request.args.get('sort', 'name')
+    sort = request.args.get('sort', 'name')  # Default sort by name
+    direction = request.args.get('direction', 'asc')  # Default sort direction
+
+    if sort == 'name':
+        if direction == 'asc':
+            sets = LorcanaSet.query.order_by(LorcanaSet.name.asc()).all()
+        else:
+            sets = LorcanaSet.query.order_by(LorcanaSet.name.desc()).all()
+    elif sort == 'date':
+        if direction == 'asc':
+            sets = LorcanaSet.query.order_by(LorcanaSet.released_at.asc()).all()
+        else:
+            sets = LorcanaSet.query.order_by(LorcanaSet.released_at.desc()).all()
+    else:
+        sets = LorcanaSet.query.all()
+
+    return render_template("lorcana/sets.html", sets=sets)
 
 
 @lorcana_bp.route("/advanced_search", methods=["GET", "POST"])
 def advanced_search():
-    if request.method == "POST":
-        card_name = request.form.get("card_name")
-        card_type = request.form.get("card_type")
-        selected_ink = request.form.getlist("selected_ink")
-        selected_sets = request.form.getlist("selected_sets")
-        search_string = request.form.get("search_string")
-        page = request.form.get("page", 1, type=int)
-        per_page = 20
+    sets = LorcanaSet.query.all()
+    card_types = ["Character", "Action", "Item", "Location"]
+    inks = ["Amber", "Amethyst", "Emerald", "Ruby", "Sapphire", "Steel"]
 
-        cards = fetch_and_cache_lorcana_cards(
-            card_name=card_name,
-            card_type=card_type,
-            selected_ink=selected_ink,
-            selected_sets=selected_sets,
-            search_string=search_string,
-            page=page,
-            per_page=per_page
-        )
+    error = None
+    cards = []
+    total_items = 0
+
+    if request.method == "POST":
+        card_name = request.form.get("cardName")
+        card_type = request.form.get("cardType")
+        selected_ink = request.form.getlist("ink")
+        selected_sets = request.form.getlist("sets")
+
+        try:
+            cards = fetch_and_cache_lorcana_cards(
+                card_name=card_name,
+                card_type=card_type,
+                selected_ink=selected_ink,
+                selected_sets=selected_sets
+            )
+            total_items = len(cards)
+        except Exception as e:
+            error = str(e)
+
+    return render_template(
+        "lorcana/advanced_search.html",
+        cards=cards,
+        total_items=total_items,
+        card_types=card_types,
+        inks=inks,
+        sets=sets,
+        error=error
+    )
+
 
 @lorcana_bp.route('/card/<card_id>')
 def card_detail(card_id):
@@ -85,12 +117,9 @@ def card_detail(card_id):
         return "Card not found", 404
 
     card_set = card.set if card.set else None
-    # mana_icons = fetch_and_cache__mana_icons()  # Fetch mana icons from Scryfall API
-    # reprints = fetch_and_cache_reprints(card)  # Fetch reprints from Scryfall API
-    # logging.info(f"Reprints found: {reprints}")
-    rendered_html = render_template('lorcana/card_detail.html', card=card, card_set=card_set)
-    logging.debug(rendered_html)
-    return rendered_html
+    reprints = fetch_lorcana_versions(card)
+    logging.info(f"Reprints found: {reprints}")
+    return render_template('lorcana/card_detail.html', card=card, card_set=card_set, reprints=reprints)
 
 @lorcana_bp.route('/sets/<set_code>')
 def set_detail(set_code):
@@ -108,7 +137,7 @@ def set_detail(set_code):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         if not cards:
             return '', 204  # No Content
-        return render_template('partials/card_grid.html', cards=cards)
+        return render_template('lorcana/partials/card_grid.html', cards=cards)
 
     # Otherwise, render the full page
     return render_template(
@@ -143,7 +172,7 @@ def inventory():
 @lorcana_bp.route('/decks')
 @login_required
 def decks():
-    # TODO: Fetch MTG deck data for the user
+    # TODO: Lorcana deck management (create/edit/import) isn't built yet
     decks_data = []  # Replace with actual data
     return render_template('lorcana/decks.html', decks=decks_data)
 
@@ -186,14 +215,14 @@ def import_inventory():
 
         for card_data in cards:
             # Use your existing function to search for the card
-            mtg_card = find_card_for_import(card_data['name'], card_data['edition'])
+            lorcana_card = find_card_for_import(card_data['name'], card_data['edition'])
 
             # Check if we found a matching card
-            if mtg_card:
+            if lorcana_card:
                 # Add to inventory or update quantity
                 entry = LorcanaInventoryEntry.query.filter_by(
                     user_id=current_user.id,
-                    card_id=mtg_card.id
+                    card_id=lorcana_card.id
                 ).first()
 
                 if entry:
@@ -201,7 +230,7 @@ def import_inventory():
                 else:
                     entry = LorcanaInventoryEntry(
                         user_id=current_user.id,
-                        card_id=mtg_card.id,
+                        card_id=lorcana_card.id,
                         quantity=card_data['count']
                     )
                     db.session.add(entry)
@@ -223,19 +252,19 @@ def update_quantity(entry_id):
     entry = LorcanaInventoryEntry.query.get_or_404(entry_id)
     if entry.user_id != current_user.id:
         flash("You do not have permission to modify this entry.", "danger")
-        return redirect(url_for('mtg.inventory'))
+        return redirect(url_for('lorcana.inventory'))
 
     try:
         quantity = int(request.form['quantity'])
         if quantity < 0:
             flash("Quantity must be a non-negative number.", "danger")
-            return redirect(request.referrer or url_for('mtg.inventory'))
+            return redirect(request.referrer or url_for('lorcana.inventory'))
         entry.quantity = quantity
         db.session.commit()
         flash("Quantity updated successfully.", "success")
     except ValueError:
         flash("Invalid quantity.", "danger")
-    return redirect(request.referrer or url_for('mtg.inventory'))
+    return redirect(request.referrer or url_for('lorcana.inventory'))
 
 @lorcana_bp.route('/delete_from_inventory/<int:entry_id>', methods=['POST'])
 @login_required
@@ -243,18 +272,17 @@ def delete_from_inventory(entry_id):
     entry = LorcanaInventoryEntry.query.get_or_404(entry_id)
     if entry.user_id != current_user.id:
         flash("You do not have permission to delete this entry.", "danger")
-        return redirect(url_for('mtg.inventory'))
+        return redirect(url_for('lorcana.inventory'))
 
     db.session.delete(entry)
     db.session.commit()
     flash("Card deleted from your inventory.", "success")
-    return redirect(url_for('mtg.inventory'))
+    return redirect(url_for('lorcana.inventory'))
 
 @lorcana_bp.route('/search')
 @login_required
 def search():
-    # Render a search form or redirect to your existing search route
-    return render_template('lorcana/search.html')  # Or redirect to your existing search route
+    return redirect(url_for('lorcana.index'))
 
 @lorcana_bp.route('/add_to_inventory', methods=['POST'])
 @login_required
@@ -263,7 +291,7 @@ def add_to_inventory():
     # You can add more fields if needed, but only card_id is required for inventory
     if not card_id:
         flash("No card ID provided.", "danger")
-        return redirect(request.referrer or url_for('mtg.index'))
+        return redirect(request.referrer or url_for('lorcana.index'))
 
     # Check if the user already has this card in inventory
     entry = LorcanaInventoryEntry.query.filter_by(user_id=current_user.id, card_id=card_id).first()
@@ -275,8 +303,4 @@ def add_to_inventory():
         db.session.add(entry)
         flash("Card added to your inventory.", "success")
     db.session.commit()
-    return redirect(request.referrer or url_for('mtg.index'))
-
-@lorcana_bp.route('/import', methods=['POST'])
-def import_invetory():
-    return render_template('lorcana/import.html')
+    return redirect(request.referrer or url_for('lorcana.index'))

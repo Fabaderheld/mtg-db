@@ -186,8 +186,7 @@ def inventory():
 
 @mtg_bp.route('/decks')
 def decks():
-    # TODO: Fetch MTG deck data for the user
-    decks_data = []  # Replace with actual data
+    decks_data = MtgDeck.query.filter_by(user_id=current_user.id).all() if current_user.is_authenticated else []
     return render_template('mtg/decks.html', decks=decks_data)
 
 @mtg_bp.route('/import', methods=['GET', 'POST'])
@@ -296,8 +295,7 @@ def delete_from_inventory(entry_id):
 @mtg_bp.route('/search')
 @login_required
 def search():
-    # Render a search form or redirect to your existing search route
-    return render_template('mtg/search.html')  # Or redirect to your existing search route
+    return redirect(url_for('mtg.index'))
 
 @mtg_bp.route('/add_to_inventory', methods=['POST'])
 @login_required
@@ -319,12 +317,6 @@ def add_to_inventory():
         flash("Card added to your inventory.", "success")
     db.session.commit()
     return redirect(request.referrer or url_for('mtg.index'))
-
-@mtg_bp.route('/import', methods=['POST'])
-def import_invetory():
-    return render_template('mtg/import.html')
-
-from ...models import MtgDeck  # Assuming you have a deck model
 
 @mtg_bp.route('/decks/new', methods=['GET', 'POST'])
 @login_required

@@ -19,10 +19,16 @@ from ..models import (
     db
 )
 
+# Scryfall rejects requests without a custom User-Agent (returns 400 generic_user_agent)
+SCRYFALL_HEADERS = {
+    "User-Agent": "mtg-db/1.0 (github.com/Fabaderheld/mtg-db)",
+    "Accept": "application/json"
+}
+
 def fetch_and_cache_mtg_sets() -> None:
     try:
         logging.info("Fetching sets from Scryfall...")
-        response = requests.get("https://api.scryfall.com/sets")
+        response = requests.get("https://api.scryfall.com/sets", headers=SCRYFALL_HEADERS)
         if response.status_code == 200:
             data = response.json()
             sets = data.get("data", [])
@@ -39,7 +45,7 @@ def fetch_and_cache_mtg_sets() -> None:
                         save_path = os.path.join(save_dir, filename)
 
                         try:
-                            img_response = requests.get(icon_url)
+                            img_response = requests.get(icon_url, headers=SCRYFALL_HEADERS)
                             if img_response.status_code == 200:
                                 with open(save_path, "wb") as f:
                                     f.write(img_response.content)
@@ -117,7 +123,7 @@ def fetch_and_cache_mtg_cards(
                 # Fetch from Scryfall by ID
                 logging.info(f"Card not found in database, fetching from Scryfall: {card_id}")
                 scryfall_url = f"https://api.scryfall.com/cards/{card_id}"
-                response = requests.get(scryfall_url)
+                response = requests.get(scryfall_url, headers=SCRYFALL_HEADERS)
                 if response.status_code == 200:
                     card_data = response.json()
                     # Process image
@@ -265,7 +271,7 @@ def fetch_and_cache_mtg_cards(
                 'page': 1  # Always fetch page 1 from Scryfall to get fresh data
             }
 
-            response = requests.get(url, params=params)
+            response = requests.get(url, params=params, headers=SCRYFALL_HEADERS)
             if response.status_code != 200:
                 logging.warning(f"Scryfall fetch failed: {response.status_code}")
                 return paginated_cards
@@ -387,7 +393,7 @@ def fetch_and_cache_mtg_cards(
         return []
 
 def fetch_and_cache_mtg_symbols() -> Dict[str, str]:
-    response = requests.get("https://api.scryfall.com/symbology")
+    response = requests.get("https://api.scryfall.com/symbology", headers=SCRYFALL_HEADERS)
     symbols = {}
     if response.status_code == 200:
         data = response.json()
@@ -398,7 +404,7 @@ def fetch_and_cache_mtg_symbols() -> Dict[str, str]:
             filename = symbol_code.replace("{", "").replace("}", "").replace("/", "").replace(" ", "") + ".svg"
             local_path = os.path.join("static", "images", "mtg_symbols", filename)
             if not os.path.exists(local_path):
-                img_response = requests.get(svg_url)
+                img_response = requests.get(svg_url, headers=SCRYFALL_HEADERS)
                 if img_response.status_code == 200:
                     with open(local_path, "wb") as f:
                         f.write(img_response.content)
@@ -460,7 +466,7 @@ def fetch_and_cache_reprints(card: 'MtgCard') -> List['MtgCard']:
         return reprints
 
     # 2. Fetch reprints from Scryfall using prints_search_uri
-    response = requests.get(card.prints_search_uri)
+    response = requests.get(card.prints_search_uri, headers=SCRYFALL_HEADERS)
     if response.status_code == 200:
         data = response.json()
         cards = data.get("data", [])

@@ -114,7 +114,6 @@ class LorcanaCard(db.Model):
     types = db.relationship("LorcanaType", secondary="lorcana_card_types", back_populates="cards")
     classifications = db.relationship("LorcanaClassification", secondary="lorcana_card_classifications", back_populates="cards")
     illustrators = db.relationship("LorcanaIllustrator", secondary="lorcana_card_illustrators", back_populates="cards")
-    #inventory_entries = db.relationship("CardInventory",back_populates="lorcana_card",overlaps="mtg_card")
 
 class LorcanaSet(db.Model):
     __tablename__ = 'lorcana_set'
