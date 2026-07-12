@@ -384,8 +384,7 @@ h2 {
 }
 
 .card-img-top.custom-card-style {
-    border-top-left-radius: 22px !important;
-    border-top-right-radius: 22px !important;
+    border-radius: 22px !important;
     overflow: hidden;
 }
 

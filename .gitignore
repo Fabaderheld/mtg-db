@@ -16,6 +16,10 @@ static/mtg_images/*
 static/mtg_mana/*
 static/mtg_sets_icons/*
 static/lorcana_images/*
+static/images/mtg_images/*
+static/images/mtg_symbols/*
+static/images/mtg_sets_icons/*
+static/images/lorcana_images/*
 **/__pycache__/*
 __pycache__/
 **/*.pyc

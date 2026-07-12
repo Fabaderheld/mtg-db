@@ -82,9 +82,25 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('mtg.sets') }}">Sets</a>
                     </li>
+                    <!-- Conditionally display Register/Login or User Profile links -->
+                    {% if not current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Pricing</a>
+                        <a class="nav-link" href="{{ url_for('auth.register', game='mtg') }}">Register</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.login', game='mtg') }}">Login</a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('mtg.inventory') }}">Inventory</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('mtg.decks') }}">Decks</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="#">About</a>
                     </li>
@@ -107,7 +123,17 @@
             </div>
         </div>
     </nav>
-    <div class="container">
+    <div class="container mt-5">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
         {% block content %}
         {% endblock %}
     </div>

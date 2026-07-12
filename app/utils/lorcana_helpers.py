@@ -1,8 +1,10 @@
+import csv
 import json
 import logging
 import os
 import time
 import requests
+from io import StringIO
 from flask import current_app
 
 from ..models import (
@@ -65,17 +67,18 @@ def download_lorcana_image(card_id, size='normal'):
         save_dir = os.path.join(current_app.static_folder, current_app.config['LORCANA_UPLOAD_FOLDER'])
         os.makedirs(save_dir, exist_ok=True)
         save_path = os.path.join(save_dir, filename)
+        local_path = f"{current_app.config['LORCANA_IMAGE_PATH']}/{filename}"
 
         if os.path.exists(save_path):
             logging.info(f"Lorcana image already exists at {save_path}, skipping download.")
-            return f"{current_app.config['LORCANA_UPLOAD_FOLDER']}/{filename}"
+            return local_path
 
         response = requests.get(image_url)
         if response.status_code == 200:
             with open(save_path, 'wb') as f:
                 f.write(response.content)
             logging.info(f"Lorcana image downloaded and saved to {save_path}")
-            return f"{image_url}"
+            return local_path
         else:
             logging.error(f"Failed to download Lorcana image from {image_url}: {response.status_code}")
             return None
@@ -268,6 +271,7 @@ def lorcana_card_to_dict(card):
         'lang': card.lang,
         'flavor_text': card.flavor_text,
         'tcgplayer_id': card.tcgplayer_id,
+        'local_image_path': card.local_image_path,
 
         'image_uris': {
             'small': card.image_uris_small,
@@ -283,7 +287,8 @@ def lorcana_card_to_dict(card):
             'id': card.set.id,
             'code': card.set.code,
             'name': card.set.name,
-            'released_at': card.set.released_at
+            'released_at': card.set.released_at,
+            'local_icon_path': card.set.local_icon_path
         } if card.set else None
     }
 
@@ -294,3 +299,73 @@ def fetch_lorcana_versions(card):
 
     versions = fetch_and_cache_lorcana_cards(card_name=card.name)
     return [lorcana_card_to_dict(version) for version in versions if version.id != card.id]
+
+def parse_csv_content(file_content):
+    try:
+        csv_data = StringIO(file_content)
+        reader = csv.DictReader(csv_data)
+        cards = []
+
+        # Check if required columns exist
+        required_columns = ['Count', 'Name', 'Edition']
+        if not all(col in reader.fieldnames for col in required_columns):
+            missing = [col for col in required_columns if col not in reader.fieldnames]
+            raise ValueError(f"Missing required columns: {missing}")
+
+        for row_num, row in enumerate(reader, start=2):  # Start at 2 because row 1 is header
+            try:
+                card_data = {
+                    'count': int(row['Count']) if row['Count'] else 0,
+                    'name': row['Name'].strip(),
+                    'edition': row['Edition'].strip()
+                }
+
+                # Skip rows with empty names
+                if not card_data['name']:
+                    continue
+
+                cards.append(card_data)
+
+            except ValueError as e:
+                print(f"Error parsing row {row_num}: {e}")
+                continue
+
+        return cards
+
+    except Exception as e:
+        raise ValueError(f"Error parsing CSV: {e}")
+
+def find_card_for_import(name, edition):
+    """
+    Find a specific Lorcana card by name and edition for import purposes.
+    Returns the first matching card or None if not found.
+    """
+
+    # Try to find the set first
+    lorcana_set = None
+    if edition:
+        lorcana_set = LorcanaSet.query.filter(
+            db.or_(
+                LorcanaSet.name.ilike(f'%{edition}%'),
+                LorcanaSet.code.ilike(f'%{edition}%')
+            )
+        ).first()
+
+    # Search for the card
+    query = LorcanaCard.query.filter(LorcanaCard.name.ilike(f'%{name}%'))
+    if lorcana_set:
+        query = query.filter(LorcanaCard.set_id == lorcana_set.id)
+
+    card = query.first()
+
+    if card:
+        return card
+
+    # If not found locally, use the existing function to fetch from API
+    search_results = fetch_and_cache_lorcana_cards(
+        card_name=name,
+        selected_sets=[lorcana_set.id] if lorcana_set else None,
+        per_page=1
+    )
+
+    return search_results[0] if search_results and len(search_results) > 0 else None

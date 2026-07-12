@@ -56,8 +56,6 @@
     {% block head_extra %}{% endblock %}
 </head>
 
-
-
 <body>
     <nav class="navbar navbar-expand-lg bg-light" data-bs-theme="light">
         <div class="container-fluid">
@@ -82,9 +80,24 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('lorcana.sets') }}">Sets</a>
                     </li>
+                    {% if not current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Pricing</a>
+                        <a class="nav-link" href="{{ url_for('auth.register', game='lorcana') }}">Register</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.login', game='lorcana') }}">Login</a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('lorcana.inventory') }}">Inventory</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('lorcana.decks') }}">Decks</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="#">About</a>
                     </li>
@@ -108,6 +121,16 @@
         </div>
     </nav>
     <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
         {% block content %}
         {% endblock %}
     </div>

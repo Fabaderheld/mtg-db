@@ -1,5 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash
 
 db = SQLAlchemy()
 
@@ -77,11 +79,6 @@ mtg_card_sets = db.Table('mtg_card_sets',
     db.Column('set_code', db.String, db.ForeignKey('mtg_set.code'), primary_key=True)
 )
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    # Add password hash, email, etc. as needed
-
 class LorcanaCard(db.Model):
     __tablename__ = 'lorcana_card'
 
@@ -117,7 +114,6 @@ class LorcanaCard(db.Model):
     types = db.relationship("LorcanaType", secondary="lorcana_card_types", back_populates="cards")
     classifications = db.relationship("LorcanaClassification", secondary="lorcana_card_classifications", back_populates="cards")
     illustrators = db.relationship("LorcanaIllustrator", secondary="lorcana_card_illustrators", back_populates="cards")
-    #inventory_entries = db.relationship("CardInventory",back_populates="lorcana_card",overlaps="mtg_card")
 
 class LorcanaSet(db.Model):
     __tablename__ = 'lorcana_set'
@@ -164,3 +160,71 @@ lorcana_card_illustrators = db.Table('lorcana_card_illustrators',
     db.Column('lorcana_card_id', db.String, db.ForeignKey('lorcana_card.id'), primary_key=True),
     db.Column('lorcana_illustrator_id', db.Integer, db.ForeignKey('lorcana_illustrator.id'), primary_key=True)
 )
+
+class MtgInventoryEntry(db.Model):
+    __tablename__ = 'mtg_inventory_entry'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    card_id = db.Column(db.String, db.ForeignKey('mtg_card.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+
+    user = db.relationship('User', backref='mtg_inventory_entries')
+    card = db.relationship('MtgCard', backref='inventory_entries')
+
+class LorcanaInventoryEntry(db.Model):
+    __tablename__ = 'lorcana_inventory_entry'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    card_id = db.Column(db.String, db.ForeignKey('lorcana_card.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+
+    user = db.relationship('User', backref='lorcana_inventory_entries')
+    card = db.relationship('LorcanaCard', backref='inventory_entries')
+
+
+class MtgDeck(db.Model):
+    __tablename__ = 'mtg_deck'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String, nullable=False)
+    description = db.Column(db.Text)
+
+    user = db.relationship('User', backref='mtg_decks')
+    cards = db.relationship('MtgDeckCard', back_populates='deck', cascade='all, delete-orphan')
+
+class MtgDeckCard(db.Model):
+    __tablename__ = 'mtg_deck_card'
+    deck_id = db.Column(db.Integer, db.ForeignKey('mtg_deck.id'), primary_key=True)
+    card_id = db.Column(db.String, db.ForeignKey('mtg_card.id'), primary_key=True)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+
+    deck = db.relationship('MtgDeck', back_populates='cards')
+    card = db.relationship('MtgCard')
+
+class LorcanaDeck(db.Model):
+    __tablename__ = 'lorcana_deck'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String, nullable=False)
+    description = db.Column(db.Text)
+
+    user = db.relationship('User', backref='lorcana_decks')
+    cards = db.relationship('LorcanaDeckCard', back_populates='deck', cascade='all, delete-orphan')
+
+class LorcanaDeckCard(db.Model):
+    __tablename__ = 'lorcana_deck_card'
+    deck_id = db.Column(db.Integer, db.ForeignKey('lorcana_deck.id'), primary_key=True)
+    card_id = db.Column(db.String, db.ForeignKey('lorcana_card.id'), primary_key=True)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+
+    deck = db.relationship('LorcanaDeck', back_populates='cards')
+    card = db.relationship('LorcanaCard')
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
+
+    def __init__(self, username, password):
+        self.username = username
+        self.password = generate_password_hash(password)

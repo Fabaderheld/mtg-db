@@ -1,0 +1,149 @@
+{% extends "lorcana/base.html" %}
+
+{% block content %}
+<style>
+    .sets-container {
+        background-color: inherit;
+        width: 100%;
+    }
+
+    .set-checkbox-container {
+        column-count: 4;
+    }
+
+    .collapsible-indicator {
+        display: inline-block;
+        transition: transform 0.3s ease;
+    }
+
+    .collapsible-indicator.collapsed {
+        transform: rotate(90deg);
+    }
+
+    .btn-link {
+        color: black;
+        text-decoration: none;
+    }
+
+    .btn-link:hover {
+        color: #6c757d;
+    }
+
+    .form-control {
+        width: 100%;
+    }
+
+    .ink-checkbox-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .ink-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+</style>
+
+<h1 class="mt-5">Advanced Search</h1>
+<form method="post" class="mb-4" id="searchForm">
+    <div class="mb-3">
+        <label for="cardName" class="form-label">Card Name</label>
+        <input type="text" class="form-control" id="cardName" name="cardName" placeholder="Enter card name">
+    </div>
+    <div class="mb-3">
+        <label for="cardType" class="form-label">Card Type</label>
+        <select class="form-select" id="cardType" name="cardType">
+            <option value="">Select a card type</option>
+            {% for type in card_types %}
+            <option value="{{ type }}">{{ type }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Ink Colors</label>
+        <div class="ink-checkbox-container">
+            {% for ink in inks %}
+            <div class="form-check ink-checkbox">
+                <input class="form-check-input" type="checkbox" name="ink" value="{{ ink }}" id="ink{{ ink }}">
+                <label class="form-check-label" for="ink{{ ink }}">{{ ink }}</label>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="mb-3">
+        <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#setsCollapse"
+            aria-expanded="false" aria-controls="setsCollapse">
+            <span class="collapsible-indicator">></span> Select Sets
+        </button>
+        <div class="collapse sets-container" id="setsCollapse">
+            <div class="card card-body">
+                <div class="mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="checkAll">Check All</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="uncheckAll">Uncheck All</button>
+                </div>
+                <div class="set-checkbox-container">
+                    {% for set in sets %}
+                    <div class="form-check">
+                        <input class="form-check-input set-checkbox" type="checkbox" name="sets" value="{{ set.code }}"
+                            id="set{{ set.code }}">
+                        <label class="form-check-label" for="set{{ set.code }}">
+                            {{ set.name }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <button type="submit" class="btn btn-dark">Search</button>
+</form>
+
+{% if error %}
+<div class="alert alert-danger">
+    {{ error }}
+</div>
+{% endif %}
+
+{% if total_items is defined %}
+<div class="alert alert-info">
+    Found {{ total_items }} items.
+</div>
+{% endif %}
+
+<div class="row">
+    {% include "lorcana/partials/card_grid.html" %}
+</div>
+
+<script src="{{ url_for('static', filename='js/infinite_scroll.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const checkAllButton = document.getElementById('checkAll');
+        const uncheckAllButton = document.getElementById('uncheckAll');
+        const checkboxes = document.querySelectorAll('.set-checkbox');
+        const collapsibleIndicator = document.querySelector('.collapsible-indicator');
+        const setsCollapse = document.getElementById('setsCollapse');
+
+        checkAllButton.addEventListener('click', function () {
+            checkboxes.forEach(function (checkbox) {
+                checkbox.checked = true;
+            });
+        });
+
+        uncheckAllButton.addEventListener('click', function () {
+            checkboxes.forEach(function (checkbox) {
+                checkbox.checked = false;
+            });
+        });
+
+        setsCollapse.addEventListener('show.bs.collapse', function () {
+            collapsibleIndicator.classList.add('collapsed');
+        });
+
+        setsCollapse.addEventListener('hide.bs.collapse', function () {
+            collapsibleIndicator.classList.remove('collapsed');
+        });
+    });
+</script>
+{% endblock %}

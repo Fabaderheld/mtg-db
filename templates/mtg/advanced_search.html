@@ -139,7 +139,6 @@
         </div>
     </div>
     <button type="submit" class="btn btn-dark">Search</button>
-    <button type="submit" class="btn btn-dark">Search</button>
 </form>
 
 {% if error %}
@@ -155,46 +154,7 @@
 {% endif %}
 
 <div class="row">
-    {% for card in cards %}
-    <div class="col-md-4 mb-4">
-        <div class="card">
-
-
-            <!-- Debug: Print the local image path -->
-            <p>Local Image Path: {{ card.local_image_path }}</p>
-
-            <!-- Debug: Print the type of local_image_path -->
-            <p>Type of Local Image Path: {{ card.local_image_path.__class__.__name__ }}</p>
-
-            <!-- Debug: Print the length of local_image_path -->
-            <p>Length of Local Image Path: {{ card.local_image_path|length }}</p>
-
-
-            {% if card.local_image_path %}
-            <img src="{{ url_for('static', filename=card.local_image_path) }}" class="card-img-top"
-                alt="{{ card.name }}">
-            {% else %}
-            <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center"
-                style="height: 300px;">
-                No Image Available
-            </div>
-            {% endif %}
-            <!-- Debug: Print the local image path -->
-            <p>Local Image Path: {{ card.local_image_path }}</p>
-            <div class="card-body">
-                <h5 class="card-title">{{ card.name }}</h5>
-                <p class="card-text">{{ card.type_line }}</p>
-                <form method="post" action="/save">
-                    <input type="hidden" name="id" value="{{ card.id }}">
-                    <input type="hidden" name="name" value="{{ card.name }}">
-                    <input type="hidden" name="image_url" value="{{ card.image_url }}">
-                    <input type="hidden" name="type_line" value="{{ card.type_line }}">
-                    <button type="submit" class="btn btn-dark">Save</button>
-                </form>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
+    {% include "mtg/partials/card_grid.html" %}
 </div>
 
 <!-- Add JavaScript to handle check all and uncheck all functionality -->
@@ -206,8 +166,6 @@
         const checkboxes = document.querySelectorAll('.set-checkbox');
         const collapsibleIndicator = document.querySelector('.collapsible-indicator');
         const setsCollapse = document.getElementById('setsCollapse');
-        const searchForm = document.getElementById('searchForm');
-        const loadingSpinner = document.getElementById('loadingSpinner');
 
         checkAllButton.addEventListener('click', function () {
             checkboxes.forEach(function (checkbox) {
@@ -227,10 +185,6 @@
 
         setsCollapse.addEventListener('hide.bs.collapse', function () {
             collapsibleIndicator.classList.remove('collapsed');
-        });
-
-        searchForm.addEventListener('submit', function () {
-            loadingSpinner.style.display = 'block';  // Show the loading spinner
         });
     });
 </script>

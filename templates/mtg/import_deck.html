@@ -1,0 +1,77 @@
+{% extends "mtg/base.html" %}
+
+{% block content %}
+<h1 class="mb-4">Import</h1>
+
+<form method="post" action="{{ url_for('mtg.import_deck') }}" enctype="multipart/form-data">
+    <div class="mb-3">
+        <label for="deck_name" class="form-label">Deck Name:</label>
+        <input type="text" class="form-control" id="deck_name" name="deck_name" required>
+    </div>
+    <div class="mb-3">
+        <label for="import_deck" class="form-label">Paste Inventory Data:</label>
+        <textarea class="form-control" id="import_deck" name="import_deck" rows="4" cols="50"></textarea>
+    </div>
+
+    <div class="mb-3">
+        <label for="csv_file" class="form-label">Or Upload CSV File:</label>
+        <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv">
+    </div>
+
+    <button class="btn btn-dark my-2 my-sm-0" type="submit">Import</button>
+</form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tooltip = document.createElement('div');
+        tooltip.classList.add('card-preview-tooltip');
+        document.body.appendChild(tooltip);
+
+        document.querySelectorAll('[data-image]').forEach(link => {
+            link.addEventListener('mouseover', function (event) {
+                const imageURL = this.getAttribute('data-image');
+                if (imageURL) {
+                    const img = new Image();
+                    tooltip.innerHTML = 'Loading...';
+                    tooltip.style.display = 'block';
+                    updateTooltipPosition(event);
+
+                    img.onload = function () {
+                        tooltip.innerHTML = '';
+                        tooltip.appendChild(img);
+                    };
+                    img.onerror = function () {
+                        tooltip.innerHTML = 'Image failed to load';
+                    };
+                    img.src = imageURL;
+                }
+            });
+
+            link.addEventListener('mousemove', updateTooltipPosition);
+
+            link.addEventListener('mouseout', function () {
+                tooltip.style.display = 'none';
+            });
+        });
+
+        function updateTooltipPosition(event) {
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            let left = event.pageX + 20;
+            let top = event.pageY + 20;
+
+            if (left + tooltipRect.width > viewportWidth) {
+                left = event.pageX - tooltipRect.width - 20;
+            }
+            if (top + tooltipRect.height > viewportHeight) {
+                top = event.pageY - tooltipRect.height - 20;
+            }
+
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        }
+    });
+</script>
+{% endblock %}

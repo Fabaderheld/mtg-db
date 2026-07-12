@@ -2,6 +2,24 @@ let page = 1;
 let loading = false;
 let endOfCards = false;
 
+function getContentContainer() {
+    // Try different container IDs based on the page
+    const containers = ['card-list', 'inventory-items', 'content-container'];
+    for (const id of containers) {
+        const element = document.getElementById(id);
+        if (element) {
+            console.log('Found container:', id);
+            return element;
+        }
+    }
+    console.error('No content container found!');
+    return null;
+}
+
+function shouldShowLoadingIndicator() {
+    return !document.body.classList.contains('no-loading-indicator');
+}
+
 function getFetchUrl() {
     const currentUrl = new URL(window.location.href);
     currentUrl.searchParams.set('page', page + 1);
@@ -17,7 +35,10 @@ function fetchMoreCards() {
 
     loading = true;
     console.log('Fetching more cards - page:', page + 1);
-    showLoading();
+
+    if (shouldShowLoadingIndicator()) {
+        showLoading();
+    }
 
     fetch(getFetchUrl(), {
         headers: {
@@ -38,20 +59,23 @@ function fetchMoreCards() {
     })
     .then(html => {
         console.log('Received HTML length:', html.length);
-        const cardList = document.getElementById('card-list');
-        if (!cardList) {
-            console.error('Card list container not found!');
+        const contentContainer = getContentContainer();
+        if (!contentContainer) {
+            console.error('Content container not found!');
             return;
         }
 
         if (html.trim() === '') {
             endOfCards = true;
-            cardList.insertAdjacentHTML('beforeend',
-                '<div class="col-12 text-center mt-3 mb-3">' +
-                '<p>No more cards to load</p></div>'
-            );
+            // Different message containers based on page type
+            const isTable = contentContainer.tagName.toLowerCase() === 'tbody';
+            const noMoreMessage = isTable
+                ? '<tr><td colspan="5" class="text-center mt-3 mb-3"><p>No more items to load</p></td></tr>'
+                : '<div class="col-12 text-center mt-3 mb-3"><p>No more cards to load</p></div>';
+
+            contentContainer.insertAdjacentHTML('beforeend', noMoreMessage);
         } else {
-            cardList.insertAdjacentHTML('beforeend', html);
+            contentContainer.insertAdjacentHTML('beforeend', html);
             page += 1;
             console.log('Updated page to:', page);
         }
@@ -59,17 +83,21 @@ function fetchMoreCards() {
     .catch(error => {
         console.log('Fetch error or no more cards:', error.message);
         if (error.message !== 'No more cards') {
-            const cardList = document.getElementById('card-list');
-            if (cardList) {
-                cardList.insertAdjacentHTML('beforeend',
-                    '<div class="col-12 text-center mt-3 mb-3 text-danger">' +
-                    '<p>Error loading more cards. Please try again later.</p></div>'
-                );
+            const contentContainer = getContentContainer();
+            if (contentContainer) {
+                const isTable = contentContainer.tagName.toLowerCase() === 'tbody';
+                const errorMessage = isTable
+                    ? '<tr><td colspan="5" class="text-center mt-3 mb-3 text-danger"><p>Error loading more items. Please try again later.</p></td></tr>'
+                    : '<div class="col-12 text-center mt-3 mb-3 text-danger"><p>Error loading more cards. Please try again later.</p></div>';
+
+                contentContainer.insertAdjacentHTML('beforeend', errorMessage);
             }
         }
     })
     .finally(() => {
-        hideLoading();
+        if (shouldShowLoadingIndicator()) {
+            hideLoading();
+        }
         loading = false;
         console.log('Fetch complete - loading:', loading);
     });

@@ -1,0 +1,10 @@
+{% extends "mtg/base.html" %}
+{% block content %}
+<h1>{{ deck.name }}</h1>
+<p>{{ deck.description }}</p>
+<!-- List cards in the deck here if you have that relationship -->
+{% if current_user.is_authenticated and deck.user_id == current_user.id %}
+<a href="{{ url_for('mtg.edit_deck', deck_id=deck.id) }}">Edit Deck</a>
+{% endif %}
+<a href="{{ url_for('mtg.decks') }}">Back to Decks</a>
+{% endblock %}

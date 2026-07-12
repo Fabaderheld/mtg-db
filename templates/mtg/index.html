@@ -2,31 +2,33 @@
 
 {% block content %}
 
-<!-- Loading spinner overlay -->
-<div id="loading-spinner">
-    <div class="spinner"></div>
-    <p>Loading...</p>
-</div>
-
-<h1 class="mt-5">Search Magic: The Gathering Cards New</h1>
-<form id="searchForm" method="get" class="mb-4">
-    <div class="input-group">
-        <input type="text" class="form-control" name="query" placeholder="e.g. goblin" value="{{ query or '' }}"
-            required>
-        <button class="btn btn-dark" type="submit">Search</button>
+<body class="show-loading-indicator">
+    <!-- Loading spinner overlay -->
+    <div id="loading-spinner">
+        <div class="spinner"></div>
+        <p>Loading...</p>
     </div>
-</form>
 
-{% if error %}
-<div class="alert alert-danger">
-    {{ error }}
-</div>
-{% endif %}
+    <h1 class="mt-5">Search Magic: The Gathering Cards New</h1>
+    <form id="searchForm" method="get" class="mb-4">
+        <div class="input-group">
+            <input type="text" class="form-control" name="query" placeholder="e.g. goblin" value="{{ query or '' }}"
+                required>
+            <button class="btn btn-dark" type="submit">Search</button>
+        </div>
+    </form>
 
-<div id="card-list" class="row">
-    {% include "mtg/partials/card_grid.html" %}
-</div>
+    {% if error %}
+    <div class="alert alert-danger">
+        {{ error }}
+    </div>
+    {% endif %}
 
+    <div id="card-list" class="row">
+        {% include "mtg/partials/card_grid.html" %}
+    </div>
+
+</body>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const searchForm = document.getElementById('searchForm');

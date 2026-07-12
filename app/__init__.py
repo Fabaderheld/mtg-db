@@ -6,12 +6,12 @@ from flask import Flask, render_template, jsonify, request, session, current_app
 from flask_login import LoginManager
 from markupsafe import Markup
 from flask import Flask
-from .mtg.routes import mtg_bp
-from .lorcana.routes import lorcana_bp
+from .routes.mtg.routes import mtg_bp
+from .routes.lorcana.routes import lorcana_bp
 
 from .models import db,User
 from .routes import register_routes
-from .utils.mtg_helpers import fetch_and_cache_mtg_sets
+from .utils.mtg_helpers import fetch_and_cache_mtg_sets,fetch_and_cache_mtg_symbols
 from .utils.lorcana_helpers import fetch_and_cache_lorcana_sets
 
 def configure_logging(app):
@@ -64,11 +64,20 @@ def create_app():
     # Register routes
     register_routes(app)
 
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'  # Update login_view to use the auth blueprint
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+
     # Create database tables within the app context
     with app.app_context():
         db.create_all()
         fetch_and_cache_mtg_sets()
         fetch_and_cache_lorcana_sets()
+        fetch_and_cache_mtg_symbols()
 
     @app.template_filter('mana_icons')
     def mana_icons_filter(mana_cost, mana_icons):
